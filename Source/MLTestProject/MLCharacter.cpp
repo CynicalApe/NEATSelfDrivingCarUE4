@@ -153,7 +153,7 @@ void AMLCharacter::UpdateComponentLocations()
 	}
 	if (camera_spring_arm)	{
 		camera_spring_arm->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator(-60.0f, 0.f, 0.0f));
-		camera_spring_arm->SSetWorldLocation(root_world_location);
+		camera_spring_arm->SetWorldLocation(root_world_location);
 	}
 	if (attached_camera) {
 		FVector socket_location;
