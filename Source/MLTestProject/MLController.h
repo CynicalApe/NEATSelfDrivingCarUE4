@@ -34,7 +34,6 @@ public:
 	void MoveXAxis(float AxisValue);
 	void MoveYAxis(float AxisValue);
 	void UpdateEditorProperties();
-	void RayCast();
 
 	//Input variables
 	UCameraComponent* AttachedCamera;

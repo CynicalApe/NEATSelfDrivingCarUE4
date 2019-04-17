@@ -29,7 +29,6 @@ void AMLController::BeginPlay()
 void AMLController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	RayCast();
 	FVector location = GetActorLocation();
 	if (bFlying)
 		location.Z += FlightSpeed * DeltaTime;
@@ -71,23 +70,5 @@ void AMLController::UpdateEditorProperties()
 {
 	AttachedCamera->SetRelativeLocation(CameraRelativeLocation);
 	AttachedCamera->SetRelativeRotation(CameraRelativeRotation);
-}
-
-void AMLController::RayCast()
-{
-	FHitResult HitResult;
-	FVector StartPoint = GetActorLocation();
-	FVector ForwardVector = GetActorForwardVector();
-	StartPoint += ForwardVector * 100.0f;
-	FVector EndPoint = ((ForwardVector * 300.0f) + StartPoint);
-
-	if (GetWorld()->LineTraceSingleByChannel(HitResult, StartPoint, EndPoint, ECC_WorldStatic))
-	{
-		DrawDebugLine(GetWorld(), StartPoint, EndPoint, FColor::Green, false, -1.0f, '\000', 15.0f);
-	}
-	else
-	{
-		DrawDebugLine(GetWorld(), StartPoint, EndPoint, FColor::Red, false, -1.0f, '\000', 15.0f);
-	}
 }
 
