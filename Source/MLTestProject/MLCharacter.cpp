@@ -14,6 +14,8 @@
 #include <Runtime/CoreUObject/Public/UObject/ConstructorHelpers.h>
 #include <Runtime/Engine/Public/DrawDebugHelpers.h>
 #include <Runtime/Engine/Public/LevelUtils.h>
+#include <Runtime/Engine/Public/EngineUtils.h >
+
 // Sets default values
 AMLCharacter::AMLCharacter()
 {
@@ -21,50 +23,55 @@ AMLCharacter::AMLCharacter()
     // if you don't need it.
     PrimaryActorTick.bCanEverTick = true;
     RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
-    static_mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesoh"));
+    StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesoh"));
     attached_camera = CreateDefaultSubobject<UCameraComponent>(TEXT("GameCamera"));
     camera_spring_arm = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraSpringArm"));
-    FrontSensor = CreateDefaultSubobject<USensorComponent>(TEXT("FrontSensorComponent"));
-    BehindSensor = CreateDefaultSubobject<USensorComponent>(TEXT("BehindSensorComponent"));
-    LeftSensor = CreateDefaultSubobject<USensorComponent>(TEXT("LeftSensorComponent"));
-    RightSensor = CreateDefaultSubobject<USensorComponent>(TEXT("RightSensorComponent"));
+    FrontLeftSensor = CreateDefaultSubobject<USensorComponent>(TEXT("FrontSensorComponent"));
+    FrontRightSensor = CreateDefaultSubobject<USensorComponent>(TEXT("BehindSensorComponent"));
+    BackLeftSensor = CreateDefaultSubobject<USensorComponent>(TEXT("LeftSensorComponent"));
+    BackRightSensor = CreateDefaultSubobject<USensorComponent>(TEXT("RightSensorComponent"));
 
+    // Network
+    network = MLGenome(8, 2);
+    fitness = 0;
     static ConstructorHelpers::FObjectFinder<UStaticMesh> MeshAsset(TEXT("/Game/ML_MESH"));
     if (MeshAsset.Succeeded())
     {
         UStaticMesh* Asset = MeshAsset.Object;
-        static_mesh->SetStaticMesh(Asset);
+        StaticMesh->SetStaticMesh(Asset);
     }
     else
     {
         UE_LOG(LogTemp, Warning, TEXT("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"));
     }
-    FrontSensorSocket = FName("FrontSensor");
-    BehindSensorSocket = FName("BehindSensor");
-    RightSensorSocket = FName("RightSensor");
-    LeftSensorSocket = FName("LeftSensor");
+    FrontRightSensorSocket = FName("FrontRightSensor");
+    FrontLeftSensorSocket = FName("FrontLeftSensor");
+    BackLeftSensorSocket = FName("BackLeftSensor");
+    BackRightSensorSocket = FName("BackRightSensor");
 
-    static_mesh->SetupAttachment(RootComponent);
+    StaticMesh->SetupAttachment(RootComponent);
     camera_spring_arm->SetupAttachment(RootComponent);
     attached_camera->SetupAttachment(camera_spring_arm, USpringArmComponent::SocketName);
 
-    FrontSensor->SetupAttachment(static_mesh, FrontSensorSocket);
-    BehindSensor->SetupAttachment(static_mesh, BehindSensorSocket);
-    RightSensor->SetupAttachment(static_mesh, RightSensorSocket);
-    LeftSensor->SetupAttachment(static_mesh, LeftSensorSocket);
+    FrontLeftSensor->SetupAttachment(StaticMesh, FrontRightSensorSocket);
+    FrontRightSensor->SetupAttachment(StaticMesh, FrontLeftSensorSocket);
+    BackRightSensor->SetupAttachment(StaticMesh, BackLeftSensorSocket);
+    BackLeftSensor->SetupAttachment(StaticMesh, BackRightSensorSocket);
 
-    FrontSensor->SetRayCastDirections(true, false);
-    BehindSensor->SetRayCastDirections(true, false);
-    LeftSensor->SetRayCastDirections(true, false);
-    RightSensor->SetRayCastDirections(true, false);
+    FrontRightSensor->SetRayCastDirections(true, false, true);
+    FrontLeftSensor->SetRayCastDirections(true, false, false, true);
+    BackLeftSensor->SetRayCastDirections(false, true, false, true);
+    BackRightSensor->SetRayCastDirections(false, true, true);
 
     camera_spring_arm->TargetArmLength = 400.f;
     camera_spring_arm->bEnableCameraLag = true;
     camera_spring_arm->CameraLagSpeed = 3.0f;
-    static_mesh->SetMobility(EComponentMobility::Movable);
-    static_mesh->SetVisibility(true);
+    StaticMesh->SetMobility(EComponentMobility::Movable);
+    StaticMesh->SetVisibility(true);
+    StaticMesh->SetGenerateOverlapEvents(true);
 
     UpdateEditorProperties();
+    Tags.Add(FName("MLTrigger"));
 }
 
 void
@@ -185,9 +192,9 @@ AMLCharacter::UpdateComponentLocations()
     SetActorLocation(root_world_location);
     root_world_location = RootComponent->GetComponentLocation();
     GetCapsuleComponent()->SetWorldLocation(root_world_location);
-    if (static_mesh)
+    if (StaticMesh)
     {
-        static_mesh->SetWorldLocation(root_world_location);
+        StaticMesh->SetWorldLocation(root_world_location);
     }
     if (camera_spring_arm)
     {
@@ -203,10 +210,10 @@ AMLCharacter::UpdateComponentLocations()
           USpringArmComponent::SocketName, socket_location, socket_rotation);
         attached_camera->SetWorldLocationAndRotation(socket_location, socket_rotation);
     }
-    HandleSingleAttachment(static_mesh, FrontSensor, FrontSensorSocket);
-    HandleSingleAttachment(static_mesh, BehindSensor, BehindSensorSocket);
-    HandleSingleAttachment(static_mesh, RightSensor, RightSensorSocket);
-    HandleSingleAttachment(static_mesh, LeftSensor, LeftSensorSocket);
+    HandleSingleAttachment(StaticMesh, FrontLeftSensor, FrontRightSensorSocket);
+    HandleSingleAttachment(StaticMesh, FrontRightSensor, FrontLeftSensorSocket);
+    HandleSingleAttachment(StaticMesh, BackRightSensor, BackLeftSensorSocket);
+    HandleSingleAttachment(StaticMesh, BackLeftSensor, BackRightSensorSocket);
 }
 
 void
@@ -251,10 +258,16 @@ AMLCharacter::HandleSingleAttachment(USceneComponent* ParentComponent,
 void
 AMLCharacter::TickSensors()
 {
-    FrontSensor->RayCast(GetActorLocation(), GetActorForwardVector(), GetActorRightVector());
-    BehindSensor->RayCast(GetActorLocation(), GetActorForwardVector(), GetActorRightVector());
-    RightSensor->RayCast(GetActorLocation(), GetActorForwardVector(), GetActorRightVector());
-    LeftSensor->RayCast(GetActorLocation(), GetActorForwardVector(), GetActorRightVector());
+    FrontLeftSensor->RayCast(GetActorLocation(), GetActorForwardVector(), GetActorRightVector());
+    FrontRightSensor->RayCast(GetActorLocation(), GetActorForwardVector(), GetActorRightVector());
+    BackRightSensor->RayCast(GetActorLocation(), GetActorForwardVector(), GetActorRightVector());
+    BackLeftSensor->RayCast(GetActorLocation(), GetActorForwardVector(), GetActorRightVector());
+}
+
+void
+AMLCharacter::CheckPointTest(void* ptr)
+{
+    UE_LOG(LogTemp, Warning, TEXT("GOOD JOB M8"));
 }
 
 // Input functions

@@ -23,6 +23,8 @@ USensorComponent::USensorComponent()
     }
     StaticMesh->SetMobility(EComponentMobility::Movable);
     StaticMesh->SetVisibility(true);
+    StaticMesh->SetGenerateOverlapEvents(false);
+
     RootComponent->SetupAttachment(this);
     StaticMesh->SetupAttachment(RootComponent);
 }
@@ -83,16 +85,11 @@ USensorComponent::RayCast(const FVector& SocketLocation,
                           const FVector& SocketForward,
                           const FVector& SocketRight)
 {
-    FVector MeshCenter = SocketLocation;
     FVector Start = GetComponentLocation();
-    FVector Forward = (Start - MeshCenter).GetSafeNormal();
-    FVector Right =
-      FVector::CrossProduct(Forward, FVector::CrossProduct(SocketForward, SocketRight))
-        .GetSafeNormal();
-    FVector Up = FVector::CrossProduct(Forward, Right);
-    RayDirections[0] = Forward;
+    FVector Up = FVector::CrossProduct(SocketForward, SocketRight);
+    RayDirections[0] = SocketForward;
     RayDirections[1] = -1 * RayDirections[0];
-    RayDirections[2] = Right;
+    RayDirections[2] = SocketRight;
     RayDirections[3] = -1 * RayDirections[2];
     RayDirections[4] = Up;
     RayDirections[5] = -1 * RayDirections[4];

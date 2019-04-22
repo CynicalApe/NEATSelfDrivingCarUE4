@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "MLGenome.h"
 #include "GameFramework/Character.h"
 #include "MLCharacter.generated.h"
 
@@ -59,7 +60,11 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
                                 USceneComponent* ComponentToAttach,
                                 FName& SocketName);
     void TickSensors();
-    UPROPERTY(EditAnywhere) class UStaticMeshComponent* static_mesh = nullptr;
+
+    void CheckPointTest(void* ptr);
+    void* prev_check_point = NULL;
+
+    UPROPERTY(EditAnywhere) class UStaticMeshComponent* StaticMesh = nullptr;
 
     UPROPERTY(EditAnywhere)
     class USpringArmComponent* camera_spring_arm = nullptr;
@@ -68,10 +73,10 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     class UCameraComponent* attached_camera = nullptr;
 
     UPROPERTY(EditAnywhere)
-    class USensorComponent* FrontSensor = nullptr;
-    class USensorComponent* BehindSensor = nullptr;
-    class USensorComponent* RightSensor = nullptr;
-    class USensorComponent* LeftSensor = nullptr;
+    class USensorComponent* FrontLeftSensor = nullptr;
+    class USensorComponent* FrontRightSensor = nullptr;
+    class USensorComponent* BackRightSensor = nullptr;
+    class USensorComponent* BackLeftSensor = nullptr;
 
     // Input variables
     FVector2D MovementInput;
@@ -84,10 +89,12 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     void YawCamera(float AxisValue);
     void CameraZoom(float AxisValue);
 
-    FName FrontSensorSocket;
-    FName BehindSensorSocket;
-    FName RightSensorSocket;
-    FName LeftSensorSocket;
+    FName FrontRightSensorSocket;
+    FName FrontLeftSensorSocket;
+    FName BackLeftSensorSocket;
+    FName BackRightSensorSocket;
+    MLGenome network;
+    float fitness;
 
   private:
 };

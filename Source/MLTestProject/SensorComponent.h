@@ -31,20 +31,15 @@ class MLTESTPROJECT_API USensorComponent : public USceneComponent
                  const FVector& SocketForward,
                  const FVector& SocketRight);
 
-    void SetRayCastDirections(bool CastForward = true,
-                              bool CastBehind = true,
-                              bool CastRight = true,
-                              bool CastLeft = true,
-                              bool CastUp = true,
-                              bool CastDown = true);
+    void SetRayCastDirections(bool CastForward = false,
+                              bool CastBehind = false,
+                              bool CastRight = false,
+                              bool CastLeft = false,
+                              bool CastUp = false,
+                              bool CastDown = false);
 
-    // UPROPERTY(EditAnywhere, Category = "Ray Casting")
     float RayDistanceFromCenter = 20.0f;
-
-    // UPROPERTY(EditAnywhere, Category = "Ray Casting")
-    float RayTravelDistance = 100.0f;
-
-    // UPROPERTY(EditAnywhere, Category = "Ray Casting")
+    float RayTravelDistance = 600.0f;
     float RayWidth = 2.0f;
 
     int DirectionCount = 6;
@@ -53,19 +48,12 @@ class MLTESTPROJECT_API USensorComponent : public USceneComponent
     bool* HitRays;
     bool* CastDirections;
 
-    UPROPERTY(EditAnywhere, Category = "Ray Casting")
-    bool CastForward;
-    UPROPERTY(EditAnywhere, Category = "Ray Casting")
-    bool CastBehind;
-    UPROPERTY(EditAnywhere, Category = "Ray Casting")
-    bool CastRight;
-    UPROPERTY(EditAnywhere, Category = "Ray Casting")
-    bool CastLeft;
-
-    UPROPERTY(EditAnywhere, Category = "Ray Casting")
-    bool CastUp;
-    UPROPERTY(EditAnywhere, Category = "Ray Casting")
-    bool CastDown;
+    bool CastForward = false;
+    bool CastBehind = false;
+    bool CastRight = false;
+    bool CastLeft = false;
+    bool CastUp = false;
+    bool CastDown = false;
 
     class USceneComponent* RootComponent;
     class UStaticMeshComponent* StaticMesh;
