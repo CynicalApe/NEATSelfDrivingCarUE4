@@ -34,7 +34,7 @@ AMLCharacter::AMLCharacter()
     // Network
     network = MLGenome(8, 2);
     fitness = 0;
-    static ConstructorHelpers::FObjectFinder<UStaticMesh> MeshAsset(TEXT("/Game/ML_MESH"));
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> MeshAsset(TEXT("/Game/Meshes/CarMesh"));
     if (MeshAsset.Succeeded())
     {
         UStaticMesh* Asset = MeshAsset.Object;
@@ -49,7 +49,6 @@ AMLCharacter::AMLCharacter()
     BackLeftSensorSocket = FName("BackLeftSensor");
     BackRightSensorSocket = FName("BackRightSensor");
 
-    StaticMesh->SetupAttachment(RootComponent);
     camera_spring_arm->SetupAttachment(RootComponent);
     attached_camera->SetupAttachment(camera_spring_arm, USpringArmComponent::SocketName);
 
@@ -68,10 +67,19 @@ AMLCharacter::AMLCharacter()
     camera_spring_arm->CameraLagSpeed = 3.0f;
     StaticMesh->SetMobility(EComponentMobility::Movable);
     StaticMesh->SetVisibility(true);
-    StaticMesh->SetGenerateOverlapEvents(true);
-
+    StaticMesh->SetRelativeRotationExact(FRotator(0.0f, 90.0f, 0.0f));
     UpdateEditorProperties();
     Tags.Add(FName("MLTrigger"));
+    RootComponent->SetMobility(EComponentMobility::Movable);
+    StaticMesh->SetGenerateOverlapEvents(false);
+    StaticMesh->SetCollisionObjectType(ECC_WorldDynamic);
+    StaticMesh->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+    StaticMesh->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
+    GetCapsuleComponent()->SetCollisionObjectType(ECC_WorldDynamic);
+    GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+    GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
+    GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    StaticMesh->SetupAttachment(RootComponent);
 }
 
 void
@@ -184,6 +192,12 @@ AMLCharacter::PostActorCreated()
 }
 
 void
+AMLCharacter::calculate_fitness()
+{
+    fitness = 0;
+}
+
+void
 AMLCharacter::UpdateComponentLocations()
 {
     UE_LOG(LogTemp, Warning, TEXT("UPP"));
@@ -290,4 +304,12 @@ AMLCharacter::CameraZoom(float AxisValue)
         // attached_camera->FieldOfView += ::Lerp<float>(90.0f, 60.0f, ZoomFactor * AxisValue);
         camera_spring_arm->TargetArmLength += ZoomFactor * AxisValue;
     }
+}
+
+void
+AMLCharacter::reset_player()
+{
+    fitness = 0;
+    checkpoint_count = 0;
+    // TODO_OGUZ RESET LOCATION HERE TO RESPAWN
 }

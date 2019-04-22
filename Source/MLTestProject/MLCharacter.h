@@ -31,6 +31,9 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     virtual void PostEditMove(bool bFinished) override;
     virtual void PostLoad() override;
     virtual void PostActorCreated() override;
+
+    // TODO_OGUZ
+    void calculate_fitness();
     // Handles input for moving forward and backward.
     UFUNCTION()
     void MoveForward(float Value);
@@ -95,6 +98,9 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     FName BackRightSensorSocket;
     MLGenome network;
     float fitness;
+    int checkpoint_count;
+
+    void reset_player();
 
   private:
 };

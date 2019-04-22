@@ -278,6 +278,26 @@ MLGenome::mutate(TArray<MLInnovation>& innovation_history)
     }
 }
 
+void
+MLGenome::remove_all_connections()
+{
+    connections.Empty();
+    for (auto& it : nodes)
+    {
+        it.output_connections.Empty();
+    }
+}
+
+void
+MLGenome::reset_genome()
+{
+    for (auto& node : nodes)
+    {
+        node.input = 0.0f;
+        node.output = 0.0f;
+    }
+}
+
 MLGenome
 MLGenome::operator=(const MLGenome& src)
 {

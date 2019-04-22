@@ -24,6 +24,9 @@ USensorComponent::USensorComponent()
     StaticMesh->SetMobility(EComponentMobility::Movable);
     StaticMesh->SetVisibility(true);
     StaticMesh->SetGenerateOverlapEvents(false);
+    StaticMesh->SetCollisionObjectType(ECC_WorldDynamic);
+    StaticMesh->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+    StaticMesh->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
 
     RootComponent->SetupAttachment(this);
     StaticMesh->SetupAttachment(RootComponent);
@@ -100,7 +103,6 @@ USensorComponent::RayCast(const FVector& SocketLocation,
         {
             HitRays[i] = CastRayInDirection(RayDirections[i], Start, RayHitResults[i]);
         }
-        // if hit rays[i] do something here
     }
 }
 
@@ -129,7 +131,7 @@ USensorComponent::CastRayInDirection(const FVector& RayDirection,
     FVector RealRayStart = RayDirection * RayDistanceFromCenter + RayStart;
     FVector RayEnd = (RayDirection * RayTravelDistance) + RealRayStart;
     FColor DebugLineColor = FColor::Red;
-    if (GetWorld()->LineTraceSingleByChannel(HitResult, RealRayStart, RayEnd, ECC_WorldStatic))
+    if (GetWorld()->LineTraceSingleByChannel(HitResult, RealRayStart, RayEnd, ECC_WorldDynamic))
     {
         RayHit = true;
         DebugLineColor = FColor::Green;

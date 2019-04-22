@@ -35,6 +35,8 @@ class MLTESTPROJECT_API MLGenome
     void add_node_between(int f_node, int t_node, TArray<MLInnovation>& innovation_history);
     void add_random_node(TArray<MLInnovation>& innovation_history);
     void mutate(TArray<MLInnovation>& innovation_history);
+    void remove_all_connections();
+    void reset_genome();
     MLGenome operator=(const MLGenome& src);
 
     int input_count;
