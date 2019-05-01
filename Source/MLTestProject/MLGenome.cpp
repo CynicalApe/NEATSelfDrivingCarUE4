@@ -31,6 +31,47 @@ MLGenome::MLGenome(int icount, int ocount, bool cross_over)
     nodes.Add(MLNode(bias_node_index, 0, NULL));
 }
 
+void
+MLGenome::create_empty_genome(int icount, int ocount, bool cross_over)
+{
+    input_count = icount;
+    output_count = ocount;
+    layer_count = 2;
+    node_count = 0;
+    if (cross_over)
+        return;
+    nodes.Reserve(icount + ocount + 1);
+    for (int i = 0; i < icount; i++)
+    {
+        nodes.Add(MLNode(node_count++, 0, NULL));
+    }
+    for (int i = 0; i < ocount; i++)
+    {
+        nodes.Add(MLNode(node_count++, 1, NULL));
+    }
+    bias_node_index = node_count++;
+    nodes.Add(MLNode(bias_node_index, 0, NULL));
+}
+
+MLGenome::MLGenome(const MLGenome& src)
+{
+    input_count = src.input_count;
+    output_count = src.output_count;
+    layer_count = src.layer_count;
+    node_count = src.node_count;
+    nodes.Reserve(input_count + output_count + 1);
+    for (int i = 0; i < input_count; i++)
+    {
+        nodes.Add(MLNode(node_count++, 0, NULL));
+    }
+    for (int i = 0; i < output_count; i++)
+    {
+        nodes.Add(MLNode(node_count++, 1, NULL));
+    }
+    bias_node_index = node_count++;
+    nodes.Add(MLNode(bias_node_index, 0, NULL));
+}
+
 MLGenome::~MLGenome() {}
 
 void
@@ -265,7 +306,7 @@ MLGenome::mutate(TArray<MLInnovation>& innovation_history)
     StaticRandomNumberGenerator.seed();
     prop = StaticRandomNumberGenerator.GetUniform(0, 1);
 
-    if (prop < 0.05)
+    if (1)
     {
         add_random_connection(innovation_history);
     }

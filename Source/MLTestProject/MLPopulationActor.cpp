@@ -46,15 +46,16 @@ void
 AMLPopulationActor::spawn_new_batch()
 {
     FActorSpawnParameters* param = new FActorSpawnParameters();
+    param->SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
     for (int i = 0; i < population_size; i++)
     {
-        param->SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
         AMLCharacter* spawned_actor =
           GetWorld()->SpawnActor<AMLCharacter>(AMLCharacter::StaticClass(),
                                                default_start_point->GetActorLocation(),
                                                default_start_point->GetActorRotation(),
                                                *param);
+        assert(!spawned_actor->network.nodes.Empty());
         players.Add(spawned_actor);
     }
     delete param;

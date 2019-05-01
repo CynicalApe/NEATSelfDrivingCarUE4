@@ -15,6 +15,8 @@ class MLTESTPROJECT_API MLGenome
   public:
     MLGenome();
     MLGenome(int input_count, int output_count, bool cross_over = false);
+    MLGenome(const MLGenome& src);
+    void create_empty_genome(int icount, int ocount, bool cross_over);
     ~MLGenome();
 
     void new_connection(int from_node,

@@ -15,10 +15,10 @@ MLInnovation::MLInnovation(int f_node, int t_node, int i_number, TArray<int>& in
     to_node = t_node;
     innovation_number = i_number;
     innovation_history.Empty();
-    inno_numbers.Reserve(inno_numbers.Num());
+    innovation_history.Reserve(inno_numbers.Num());
     for (auto& inno_no : inno_numbers)
     {
-        inno_numbers.Add(inno_no);
+        innovation_history.Add(inno_no);
     }
 }
 

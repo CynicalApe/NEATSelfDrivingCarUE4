@@ -32,7 +32,8 @@ AMLCharacter::AMLCharacter()
     BackRightSensor = CreateDefaultSubobject<USensorComponent>(TEXT("RightSensorComponent"));
 
     // Network
-    network = MLGenome(8, 2);
+    network.create_empty_genome(8, 2, false);
+
     fitness = 0;
     static ConstructorHelpers::FObjectFinder<UStaticMesh> MeshAsset(TEXT("/Game/Meshes/CarMesh"));
     if (MeshAsset.Succeeded())
@@ -42,7 +43,7 @@ AMLCharacter::AMLCharacter()
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"));
+        UE_LOG(LogTemp, Warning, TEXT("COULD NOT FIND THE ASSET FOR THE ML CAR!"));
     }
     FrontRightSensorSocket = FName("FrontRightSensor");
     FrontLeftSensorSocket = FName("FrontLeftSensor");
