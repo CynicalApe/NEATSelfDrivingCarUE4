@@ -39,8 +39,8 @@ class MLTESTPROJECT_API USensorComponent : public USceneComponent
                               bool CastDown = false);
 
     float RayDistanceFromCenter = 20.0f;
-    float RayTravelDistance = 600.0f;
-    float RayWidth = 2.0f;
+    float RayTravelDistance = 1000.0f;
+    float RayWidth = 5.0f;
 
     int DirectionCount = 6;
     FVector* RayDirections;
