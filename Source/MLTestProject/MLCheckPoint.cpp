@@ -75,7 +75,7 @@ AMLCheckPoint::OnOverlapBegin(class AActor* OverlappedActor, class AActor* Other
     {
         UE_LOG(LogTemp, Warning, TEXT("GOOD JOB %s"), *OtherActor->GetName());
 
-        ((AMLCharacter*)OtherActor)->CheckPointTest(this);
+        ((AMLCharacter*)OtherActor)->check_point_update(this);
     }
 }
 

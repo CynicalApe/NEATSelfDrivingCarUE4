@@ -36,10 +36,29 @@ class MLTESTPROJECT_API MLGenome
     TArray<float> feed_forward(TArray<float>& sensor_inputs);
     void add_node_between(int f_node, int t_node, TArray<MLInnovation>& innovation_history);
     void add_random_node(TArray<MLInnovation>& innovation_history);
-    void mutate(TArray<MLInnovation>& innovation_history);
+    void mutate(TArray<MLInnovation>& innovation_history, float mutation_constant);
     void remove_all_connections();
     void reset_genome();
-    MLGenome operator=(const MLGenome& src);
+    void operator=(const MLGenome& src);
+	static void cpy(const MLGenome& src, MLGenome& dst) {
+            dst.input_count = src.input_count;
+            dst.output_count = src.output_count;
+            dst.node_count = src.node_count;
+            dst.layer_count = src.layer_count;
+            dst.bias_node_index = src.bias_node_index;
+
+            dst.nodes.Reserve(src.nodes.Num());
+            for (auto& it : src.nodes)
+            {
+                dst.nodes.Add(it);
+            }
+
+            dst.connections.Reserve(src.connections.Num());
+            for (auto& it : src.connections)
+            {
+                dst.connections.Add(it);
+            }
+	}
 
     int input_count;
     int output_count;
@@ -48,4 +67,8 @@ class MLTESTPROJECT_API MLGenome
     int bias_node_index;
     TArray<MLNode> nodes;
     TArray<MLConnection> connections;
+
+	const float connection_mutation_prob = 0.8;
+	const float add_new_connection_prob = 0.03;
+	const float add_new_node_porb = 0.01;
 };

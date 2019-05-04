@@ -59,17 +59,18 @@ MLGenome::MLGenome(const MLGenome& src)
     output_count = src.output_count;
     layer_count = src.layer_count;
     node_count = src.node_count;
-    nodes.Reserve(input_count + output_count + 1);
-    for (int i = 0; i < input_count; i++)
+	
+    nodes.Reserve(src.nodes.Num());
+    for (auto& it : src.nodes)
     {
-        nodes.Add(MLNode(node_count++, 0, NULL));
+        nodes.Add(it);
     }
-    for (int i = 0; i < output_count; i++)
+
+    connections.Reserve(src.connections.Num());
+    for (auto& it : src.connections)
     {
-        nodes.Add(MLNode(node_count++, 1, NULL));
+        connections.Add(it);
     }
-    bias_node_index = node_count++;
-    nodes.Add(MLNode(bias_node_index, 0, NULL));
 }
 
 MLGenome::~MLGenome() {}
@@ -103,7 +104,7 @@ MLGenome::init_connect(TArray<MLInnovation>& innovation_history)
         }
     }
 
-    for (int i = 0; i < input_count; i++)
+    for (int i = input_count; i < input_count + output_count; i++)
     {
         new_connection(bias_node_index, i, innovation_history);
     }
@@ -187,8 +188,8 @@ MLGenome::is_fully_connected()
             max_connections += node_count_in_layer[i] * node_count_in_layer[j];
         }
     }
-
-    return max_connections > connections.Num();
+    assert(max_connections >= connections.Num());
+    return max_connections == connections.Num();
 }
 
 bool
@@ -220,13 +221,17 @@ MLGenome::feed_forward(TArray<float>& sensor_inputs)
     {
         nodes[i].input = sensor_inputs[i];
     }
+    for (auto& node : nodes)
+    {
+		node.output=0;
+	}
     nodes[bias_node_index].output = 1.0f;
 
     for (int i = 0; i < layer_count; i++)
     {
         for (auto& node : nodes)
         {
-            if (node.layer == layer_count)
+            if (node.layer == i)
             {
                 node.feed_forward(nodes);
             }
@@ -290,12 +295,12 @@ MLGenome::add_random_node(TArray<MLInnovation>& innovation_history)
 }
 
 void
-MLGenome::mutate(TArray<MLInnovation>& innovation_history)
+MLGenome::mutate(TArray<MLInnovation>& innovation_history,float mutation_constant)
 {
     StaticRandomNumberGenerator.seed();
     float prop = StaticRandomNumberGenerator.GetUniform(0, 1);
 
-    if (prop < 0.8)
+    if (prop < connection_mutation_prob)
     {
         for (auto& connection : connections)
         {
@@ -306,14 +311,14 @@ MLGenome::mutate(TArray<MLInnovation>& innovation_history)
     StaticRandomNumberGenerator.seed();
     prop = StaticRandomNumberGenerator.GetUniform(0, 1);
 
-    if (1)
+    if (add_new_connection_prob * mutation_constant)
     {
         add_random_connection(innovation_history);
     }
     StaticRandomNumberGenerator.seed();
     prop = StaticRandomNumberGenerator.GetUniform(0, 1);
 
-    if (prop < 0.03)
+    if (prop < add_new_node_porb * mutation_constant)
     {
         add_random_node(innovation_history);
     }
@@ -339,27 +344,26 @@ MLGenome::reset_genome()
     }
 }
 
-MLGenome
+
+
+void
 MLGenome::operator=(const MLGenome& src)
 {
-    MLGenome genome;
-    genome.input_count = src.input_count;
-    genome.output_count = src.output_count;
-    genome.node_count = src.node_count;
-    genome.layer_count = src.layer_count;
-    genome.bias_node_index = src.bias_node_index;
+    input_count = src.input_count;
+    output_count = src.output_count;
+    node_count = src.node_count;
+    layer_count = src.layer_count;
+    bias_node_index = src.bias_node_index;
 
-    genome.nodes.Reserve(src.nodes.Num());
+    nodes.Reserve(src.nodes.Num());
     for (auto& it : src.nodes)
     {
-        genome.nodes.Add(it);
+        nodes.Add(it);
     }
 
-    genome.connections.Reserve(src.connections.Num());
+    connections.Reserve(src.connections.Num());
     for (auto& it : src.connections)
     {
-        genome.connections.Add(it);
+        connections.Add(it);
     }
-
-    return genome;
 }

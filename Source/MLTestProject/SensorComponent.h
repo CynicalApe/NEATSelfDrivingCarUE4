@@ -29,7 +29,9 @@ class MLTESTPROJECT_API USensorComponent : public USceneComponent
                                FActorComponentTickFunction* ThisTickFunction) override;
     void RayCast(const FVector& SocketLocation,
                  const FVector& SocketForward,
-                 const FVector& SocketRight);
+                 const FVector& SocketRight,
+				 TArray<float>& sensor_outputs,
+				 int starting_index);
 
     void SetRayCastDirections(bool CastForward = false,
                               bool CastBehind = false,

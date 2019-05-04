@@ -17,69 +17,64 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     AMLCharacter();
 
   protected:
-    // Called when the game starts or when spawned
+    // Override functions
     virtual void BeginPlay() override;
 
-  public:
-    // Called every frame
-    virtual void Tick(float DeltaTime) override;
 
-    // Called to bind functionality to input
+  public:
+    // Override functions
     virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+#if WITH_EDITOR
     virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-    /** Called after an actor has been moved in the editor */
     virtual void PostEditMove(bool bFinished) override;
+#endif
     virtual void PostLoad() override;
     virtual void PostActorCreated() override;
 
-    // TODO_OGUZ
-    void calculate_fitness();
-    // Handles input for moving forward and backward.
-    UFUNCTION()
-    void MoveForward(float Value);
+    // Unreal functions
+    void update_component_locations();
+    void handle_attachments();
+    void update_editor_properties();
+    void handle_single_attachment(USceneComponent* ParentComponent,
+                                  USceneComponent* ComponentToAttach,
+                                  FName& SocketName);
+	UFUNCTION(BlueprintCallable, Category="Collision")
+    void handle_collision();
+	void update(float DeltaTime);
 
-    // Handles input for moving right and left.
-    UFUNCTION()
-    void MoveRight(float Value);
+    // Input functions
+    void pitch_camera(float AxisValue);
+    void yaw_camera(float AxisValue);
+    void camera_zoom(float AxisValue);
+    void move_forward(float Value);
+    void move_right(float Value);
 
-    // Sets jump flag when key is pressed.
-    UFUNCTION()
-    void StartJump();
+    // ML Functions
+    void calculate_score();
+    void update_pos(float dt, float steering_input);
+    void update_rotation(float dt, float acceleration_input);
+    void check_point_update(void* ptr);
+    void tick_sensors();
+    void reset_player();
+    void normalize(float& val, float min, float max);
+    inline float fvector_lenght(const FVector& vec) { 
+		return FMath::Sqrt(vec.X * vec.X + vec.Y * vec.Y + vec.Z * vec.Z); 
+	}
 
-    // Clears jump flag when key is released.
-    UFUNCTION()
-    void StopJump();
-
-    UFUNCTION()
-    void UpdateComponentLocations();
-
-    UFUNCTION()
-    void HandleAttachments();
-
-    UFUNCTION()
-    void UpdateEditorProperties();
-
-    void HandleSingleAttachment(USceneComponent* ParentComponent,
-                                USceneComponent* ComponentToAttach,
-                                FName& SocketName);
-    void TickSensors();
-
-    void CheckPointTest(void* ptr);
     void* prev_check_point = NULL;
 
-    UPROPERTY(EditAnywhere) class UStaticMeshComponent* StaticMesh = nullptr;
-
-    UPROPERTY(EditAnywhere)
+    class UStaticMeshComponent* StaticMesh = nullptr;
     class USpringArmComponent* camera_spring_arm = nullptr;
-
-    UPROPERTY(EditAnywhere)
     class UCameraComponent* attached_camera = nullptr;
 
-    UPROPERTY(EditAnywhere)
     class USensorComponent* FrontLeftSensor = nullptr;
     class USensorComponent* FrontRightSensor = nullptr;
     class USensorComponent* BackRightSensor = nullptr;
     class USensorComponent* BackLeftSensor = nullptr;
+    FName FrontLeftSensorSocket;
+    FName FrontRightSensorSocket;
+    FName BackRightSensorSocket;
+    FName BackLeftSensorSocket;
 
     // Input variables
     FVector2D MovementInput;
@@ -87,20 +82,40 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     float ZoomFactor = 10.0f;
     bool bZoomingIn;
 
-    // Input functions
-    void PitchCamera(float AxisValue);
-    void YawCamera(float AxisValue);
-    void CameraZoom(float AxisValue);
-
-    FName FrontRightSensorSocket;
-    FName FrontLeftSensorSocket;
-    FName BackLeftSensorSocket;
-    FName BackRightSensorSocket;
     MLGenome network;
     float fitness;
+    float score;
+    float check_point_score;
     int checkpoint_count;
+    float last_check_point_time;
+    float alive_time;
+    bool is_elite = false;
 
-    void reset_player();
+    TArray<float> sensor_outputs;
+    float current_speed;
+    FVector2D current_velocity;
+    // -1 Left, 1 Right
+    float steering_direction;
+    FVector acceleration_vector;
+    FVector velocity_vector;
+	FVector lateral_velocity;
+	FVector lateral_friction;
+	FVector backward_friction;
 
+    const float max_speed = 1300.0;
+    float max_sensor_input;
+    const int ML_input_count = 9;
+    const int ML_output_count = 2;
+    const int velocity_input_index = 8;
+
+    float brake_mult = 250;
+    float thrust = 500;
+    float rotation_speed = 30;
+    float lateral_friction_const = 15;
+    float backward_friction_const = 0.1;
+	float stale_timer = 0;
+    const float destruction_distance = 20.0f;
+	const float stale_limit = 3.5f;
+	bool has_crashed = false;
   private:
 };

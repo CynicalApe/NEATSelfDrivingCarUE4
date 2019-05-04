@@ -16,17 +16,6 @@ class MLTESTPROJECT_API MLSpecie
     MLSpecie(AMLCharacter* player);
     ~MLSpecie();
 
-    float excess_disjoint_constant;
-    float weight_constant;
-    float similarity_constant;
-    int staleness;
-    int gens_without_improvement;
-
-    TArray<AMLCharacter*> players;
-    float best_fitness;
-    float avg_fitness;
-    MLGenome representetive;
-
     void add_player(AMLCharacter* player);
     void get_excess_disjoint_and_w_difference(const MLGenome& genome1,
                                               const MLGenome& genome2,
@@ -38,4 +27,18 @@ class MLTESTPROJECT_API MLSpecie
     void sort();
     AMLCharacter* select_player();
     void remove_bottom_half();
+    void clear_players();
+
+    float excess_disjoint_constant;
+    float weight_constant;
+    float similarity_constant;
+    int staleness;
+    int gens_without_improvement;
+
+    TArray<AMLCharacter*> players;
+    float best_fitness;
+    float avg_fitness;
+	float best_score;
+	float avg_score;
+    MLGenome representetive;
 };

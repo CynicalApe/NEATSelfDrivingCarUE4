@@ -15,13 +15,14 @@
 #include <Runtime/Engine/Public/DrawDebugHelpers.h>
 #include <Runtime/Engine/Public/LevelUtils.h>
 #include <Runtime/Engine/Public/EngineUtils.h >
+#define SIMULATE_ML 1
 
 // Sets default values
 AMLCharacter::AMLCharacter()
 {
     // Set this character to call Tick() every frame.  You can turn this off to improve performance
     // if you don't need it.
-    PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.bCanEverTick = false;
     RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
     StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesoh"));
     attached_camera = CreateDefaultSubobject<UCameraComponent>(TEXT("GameCamera"));
@@ -32,9 +33,10 @@ AMLCharacter::AMLCharacter()
     BackRightSensor = CreateDefaultSubobject<USensorComponent>(TEXT("RightSensorComponent"));
 
     // Network
-    network.create_empty_genome(8, 2, false);
+    network.create_empty_genome(ML_input_count, ML_output_count, false);
 
     fitness = 0;
+    score = 0;
     static ConstructorHelpers::FObjectFinder<UStaticMesh> MeshAsset(TEXT("/Game/Meshes/CarMesh"));
     if (MeshAsset.Succeeded())
     {
@@ -69,7 +71,7 @@ AMLCharacter::AMLCharacter()
     StaticMesh->SetMobility(EComponentMobility::Movable);
     StaticMesh->SetVisibility(true);
     StaticMesh->SetRelativeRotationExact(FRotator(0.0f, 90.0f, 0.0f));
-    UpdateEditorProperties();
+    update_editor_properties();
     Tags.Add(FName("MLTrigger"));
     RootComponent->SetMobility(EComponentMobility::Movable);
     StaticMesh->SetGenerateOverlapEvents(false);
@@ -81,6 +83,11 @@ AMLCharacter::AMLCharacter()
     GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
     GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     StaticMesh->SetupAttachment(RootComponent);
+
+    sensor_outputs.SetNum(ML_input_count);
+    max_sensor_input = FrontRightSensor->RayTravelDistance;
+    velocity_vector = FVector(0.f, 0.f, 0.f);
+    acceleration_vector = FVector(0.f, 0.f, 0.f);
 }
 
 void
@@ -97,7 +104,7 @@ AMLCharacter::PostEditMove(bool bFinished)
 void
 AMLCharacter::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-    UpdateEditorProperties();
+    update_editor_properties();
     Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif
@@ -107,19 +114,31 @@ void
 AMLCharacter::BeginPlay()
 {
     Super::BeginPlay();
-    if (GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("We are using MLCharacter."));
-    }
-    UpdateEditorProperties();
+    update_editor_properties();
 }
 
-// Called every frame
 void
-AMLCharacter::Tick(float DeltaTime)
+AMLCharacter::update(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    TickSensors();
+    if (has_crashed)
+    {
+        return;
+    }
+    tick_sensors();
+    normalize(current_speed, 0, max_speed);
+
+    sensor_outputs[velocity_input_index] = current_speed;
+    for (int i = 0; i < ML_input_count - 1; i++)
+    {
+        if (sensor_outputs[i] <= destruction_distance)
+        {
+            has_crashed = true;
+        }
+        normalize(sensor_outputs[i], 0, max_sensor_input);
+    }
+    TArray<float> output = network.feed_forward(sensor_outputs);
+
     if (!CameraInput.IsZero())
     {
         FRotator NewRotation = camera_spring_arm->GetTargetRotation();
@@ -128,16 +147,29 @@ AMLCharacter::Tick(float DeltaTime)
         camera_spring_arm->SetWorldRotation(NewRotation);
     }
 
-    if (!MovementInput.IsZero())
+#if SIMULATE_ML
     {
-        // Scale our movement input axis values by 100 units per second
-        MovementInput = MovementInput.GetSafeNormal() * 400.0f;
-        FVector NewLocation = GetActorLocation();
-        NewLocation += GetActorForwardVector() * MovementInput.X * DeltaTime;
-        NewLocation += GetActorRightVector() * MovementInput.Y * DeltaTime;
-        SetActorLocation(NewLocation);
+        update_pos(DeltaTime, output[0]);
+        update_rotation(DeltaTime, output[1]);
     }
+#else
+    {
+        update_pos(DeltaTime, MovementInput.X);
+        update_rotation(DeltaTime, MovementInput.Y);
+    }
+#endif
+
+    if (current_speed == 0)
+    {
+		stale_timer+= DeltaTime;
+        if (stale_timer > stale_limit)
+        {
+			has_crashed = true;
+		}
+	}
 }
+
+// Called every frame
 
 // Called to bind functionality to input
 void
@@ -145,63 +177,75 @@ AMLCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
     Super::SetupPlayerInputComponent(PlayerInputComponent);
     // Set up "movement" bindings.
-    PlayerInputComponent->BindAxis("MoveForward", this, &AMLCharacter::MoveForward);
-    PlayerInputComponent->BindAxis("MoveRight", this, &AMLCharacter::MoveRight);
-    PlayerInputComponent->BindAxis("MouseX", this, &AMLCharacter::YawCamera);
-    PlayerInputComponent->BindAxis("MouseY", this, &AMLCharacter::PitchCamera);
-    PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AMLCharacter::StartJump);
-    PlayerInputComponent->BindAction("Jump", IE_Released, this, &AMLCharacter::StopJump);
-    PlayerInputComponent->BindAxis("MouseWheel", this, &AMLCharacter::CameraZoom);
+    PlayerInputComponent->BindAxis("MoveForward", this, &AMLCharacter::move_forward);
+    PlayerInputComponent->BindAxis("MoveRight", this, &AMLCharacter::move_right);
+    PlayerInputComponent->BindAxis("MouseX", this, &AMLCharacter::yaw_camera);
+    PlayerInputComponent->BindAxis("MouseY", this, &AMLCharacter::pitch_camera);
+    PlayerInputComponent->BindAxis("MouseWheel", this, &AMLCharacter::camera_zoom);
 }
 
 void
-AMLCharacter::MoveForward(float AxisValue)
+AMLCharacter::move_forward(float AxisValue)
 {
     MovementInput.X = FMath::Clamp<float>(AxisValue, -1.0f, 1.0f);
 }
 void
-AMLCharacter::MoveRight(float AxisValue)
+AMLCharacter::move_right(float AxisValue)
 {
     MovementInput.Y = FMath::Clamp<float>(AxisValue, -1.0f, 1.0f);
-}
-
-void
-AMLCharacter::StartJump()
-{
-    bPressedJump = true;
-}
-
-void
-AMLCharacter::StopJump()
-{
-    bPressedJump = false;
 }
 
 void
 AMLCharacter::PostLoad()
 {
     Super::PostLoad();
-    UE_LOG(LogTemp, Warning, TEXT("PostLoad"));
 }
 
 void
 AMLCharacter::PostActorCreated()
 {
     Super::PostActorCreated();
-    UE_LOG(LogTemp, Warning, TEXT("PostActorCreated"));
-    UpdateEditorProperties();
+    update_editor_properties();
 }
 
 void
-AMLCharacter::calculate_fitness()
+AMLCharacter::calculate_score()
 {
-    fitness = 0;
+    // TODO_OGUZ: Tune this
+    score = check_point_score + alive_time;
+    fitness = score;
 }
 
 void
-AMLCharacter::UpdateComponentLocations()
+AMLCharacter::update_pos(float dt, float acceleration_input)
 {
-    UE_LOG(LogTemp, Warning, TEXT("UPP"));
+    FVector actor_right = GetActorRightVector();
+    FVector actor_forward = GetActorForwardVector();
+    lateral_velocity = actor_right * FVector::DotProduct(velocity_vector, actor_right);
+    lateral_friction = -lateral_velocity * lateral_friction_const;
+    backward_friction = -velocity_vector * backward_friction_const;
+    acceleration_vector = actor_forward * acceleration_input * thrust;
+    velocity_vector += (acceleration_vector * dt) + ((backward_friction + lateral_friction) * dt);
+    current_speed = velocity_vector.Size();
+    FMath::Clamp(current_speed, 0.0f, max_speed);
+    if (FVector::DotProduct(velocity_vector, actor_forward) < 0)
+    {
+        velocity_vector = FVector::ZeroVector;
+		current_speed = 0;
+    }
+    SetActorLocation(GetActorLocation() + velocity_vector * dt);
+}
+
+void
+AMLCharacter::update_rotation(float dt, float steering_input)
+{
+    float angle = steering_input * rotation_speed * dt * (current_speed / max_speed);
+    SetActorRotation(GetActorRotation().Add(0, angle, 0));
+}
+
+void
+AMLCharacter::update_component_locations()
+{
 
     FVector root_world_location = RootComponent->GetComponentLocation();
     SetActorLocation(root_world_location);
@@ -225,14 +269,14 @@ AMLCharacter::UpdateComponentLocations()
           USpringArmComponent::SocketName, socket_location, socket_rotation);
         attached_camera->SetWorldLocationAndRotation(socket_location, socket_rotation);
     }
-    HandleSingleAttachment(StaticMesh, FrontLeftSensor, FrontRightSensorSocket);
-    HandleSingleAttachment(StaticMesh, FrontRightSensor, FrontLeftSensorSocket);
-    HandleSingleAttachment(StaticMesh, BackRightSensor, BackLeftSensorSocket);
-    HandleSingleAttachment(StaticMesh, BackLeftSensor, BackRightSensorSocket);
+    handle_single_attachment(StaticMesh, FrontLeftSensor, FrontRightSensorSocket);
+    handle_single_attachment(StaticMesh, FrontRightSensor, FrontLeftSensorSocket);
+    handle_single_attachment(StaticMesh, BackRightSensor, BackLeftSensorSocket);
+    handle_single_attachment(StaticMesh, BackLeftSensor, BackRightSensorSocket);
 }
 
 void
-AMLCharacter::HandleAttachments()
+AMLCharacter::handle_attachments()
 {
     if (attached_camera)
     {
@@ -249,16 +293,16 @@ AMLCharacter::HandleAttachments()
 }
 
 void
-AMLCharacter::UpdateEditorProperties()
+AMLCharacter::update_editor_properties()
 {
-    UpdateComponentLocations();
-    HandleAttachments();
+    update_component_locations();
+    handle_attachments();
 }
 
 void
-AMLCharacter::HandleSingleAttachment(USceneComponent* ParentComponent,
-                                     USceneComponent* ComponentToAttach,
-                                     FName& SocketName)
+AMLCharacter::handle_single_attachment(USceneComponent* ParentComponent,
+                                       USceneComponent* ComponentToAttach,
+                                       FName& SocketName)
 {
     if (ComponentToAttach && ParentComponent)
     {
@@ -271,34 +315,47 @@ AMLCharacter::HandleSingleAttachment(USceneComponent* ParentComponent,
 }
 
 void
-AMLCharacter::TickSensors()
+AMLCharacter::handle_collision()
 {
-    FrontLeftSensor->RayCast(GetActorLocation(), GetActorForwardVector(), GetActorRightVector());
-    FrontRightSensor->RayCast(GetActorLocation(), GetActorForwardVector(), GetActorRightVector());
-    BackRightSensor->RayCast(GetActorLocation(), GetActorForwardVector(), GetActorRightVector());
-    BackLeftSensor->RayCast(GetActorLocation(), GetActorForwardVector(), GetActorRightVector());
+    has_crashed = true;
 }
 
 void
-AMLCharacter::CheckPointTest(void* ptr)
+AMLCharacter::tick_sensors()
 {
-    UE_LOG(LogTemp, Warning, TEXT("GOOD JOB M8"));
+    FrontLeftSensor->RayCast(
+      GetActorLocation(), GetActorForwardVector(), GetActorRightVector(), sensor_outputs, 0);
+    FrontRightSensor->RayCast(
+      GetActorLocation(), GetActorForwardVector(), GetActorRightVector(), sensor_outputs, 2);
+    BackRightSensor->RayCast(
+      GetActorLocation(), GetActorForwardVector(), GetActorRightVector(), sensor_outputs, 4);
+    BackLeftSensor->RayCast(
+      GetActorLocation(), GetActorForwardVector(), GetActorRightVector(), sensor_outputs, 6);
+}
+
+void
+AMLCharacter::check_point_update(void* ptr)
+{
+    prev_check_point = ptr;
+    checkpoint_count++;
+    check_point_score += checkpoint_count / (alive_time - last_check_point_time);
+    last_check_point_time = alive_time;
 }
 
 // Input functions
 void
-AMLCharacter::PitchCamera(float AxisValue)
+AMLCharacter::pitch_camera(float AxisValue)
 {
     CameraInput.Y = AxisValue;
 }
 void
-AMLCharacter::YawCamera(float AxisValue)
+AMLCharacter::yaw_camera(float AxisValue)
 {
     CameraInput.X = AxisValue;
 }
 
 void
-AMLCharacter::CameraZoom(float AxisValue)
+AMLCharacter::camera_zoom(float AxisValue)
 {
     if (AxisValue != 0)
     {
@@ -313,4 +370,10 @@ AMLCharacter::reset_player()
     fitness = 0;
     checkpoint_count = 0;
     // TODO_OGUZ RESET LOCATION HERE TO RESPAWN
+}
+
+void
+AMLCharacter::normalize(float& val, float min, float max)
+{
+    val = (2 * (val - min) / (max - min)) - 1;
 }

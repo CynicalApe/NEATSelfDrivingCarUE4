@@ -86,7 +86,9 @@ USensorComponent::TickComponent(float DeltaTime,
 void
 USensorComponent::RayCast(const FVector& SocketLocation,
                           const FVector& SocketForward,
-                          const FVector& SocketRight)
+                          const FVector& SocketRight, 
+						  TArray<float>& sensor_outputs,
+						  int starting_index)
 {
     FVector Start = GetComponentLocation();
     FVector Up = FVector::CrossProduct(SocketForward, SocketRight);
@@ -102,6 +104,16 @@ USensorComponent::RayCast(const FVector& SocketLocation,
         if (CastDirections[i])
         {
             HitRays[i] = CastRayInDirection(RayDirections[i], Start, RayHitResults[i]);
+            if (RayHitResults->Distance == 0 || !HitRays[i])
+            {
+                sensor_outputs[starting_index++] = RayTravelDistance;
+          
+			}
+            else 
+            {
+                sensor_outputs[starting_index++] = RayHitResults->Distance;
+            }
+			RayHitResults->Reset();
         }
     }
 }

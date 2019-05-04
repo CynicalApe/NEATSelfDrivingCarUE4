@@ -10,7 +10,8 @@
  */
 
 class MLTESTPROJECT_API MLRandomNumberGenerator
-{
+{ 
+	std::random_device rd;
     std::mt19937 MLRandomEngine;
     std::uniform_real_distribution<float> MLUniformDistribution;
     std::normal_distribution<float> MLNormalDistribution;
@@ -18,7 +19,7 @@ class MLTESTPROJECT_API MLRandomNumberGenerator
   public:
     MLRandomNumberGenerator();
     ~MLRandomNumberGenerator();
-    void seed() { MLRandomEngine.seed(time(NULL)); }
+    void seed() { MLRandomEngine.seed(rd()); }
     float GetUniform() { return MLUniformDistribution(MLRandomEngine); }
     float GetNormal() { return MLNormalDistribution(MLRandomEngine); }
     float GetUniform(float min, float max)

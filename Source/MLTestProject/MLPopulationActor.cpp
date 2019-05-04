@@ -27,7 +27,7 @@ AMLPopulationActor::BeginPlay()
     for (auto& it : players)
     {
         it->network.init_connect(innovation_history);
-        it->network.mutate(innovation_history);
+        it->network.mutate(innovation_history, mutation_constant);
     }
 }
 
@@ -36,10 +36,25 @@ void
 AMLPopulationActor::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    /*for (auto& player : players)
+	int dead_count = 0;
+    for (auto& player : players)
     {
-        player->TickSensors();
-    }*/
+        if (player->has_crashed)
+        {
+            dead_count++;
+			continue;
+		}
+        player->update(DeltaTime);
+    }
+    if (dead_count == players.Num())
+    {
+		new_generation();
+	}
+}
+
+void
+AMLPopulationActor::update(float DeltaTime)
+{
 }
 
 void
@@ -111,7 +126,7 @@ AMLPopulationActor::crossover_and_add(AMLCharacter* parent1, AMLCharacter* paren
             offspring.connections.Add(genome1.connections[i]);
         }
         offspring.create_nodes_output_connection();
-        offspring.mutate(innovation_history);
+        offspring.mutate(innovation_history, mutation_constant);
         children_genomes.Add(offspring);
     }
 }
@@ -122,6 +137,12 @@ specie_predicate(const MLSpecie& sp1, const MLSpecie& sp2)
     return sp1.avg_fitness > sp2.avg_fitness;
 }
 
+inline static bool
+players_predicate(const AMLCharacter* player1, const AMLCharacter* player2)
+{
+	return player1->score > player2->score;
+}
+
 void
 AMLPopulationActor::sort()
 {
@@ -130,6 +151,85 @@ AMLPopulationActor::sort()
         specie.sort();
     }
     species.Sort(specie_predicate);
+	Algo::Sort(players, players_predicate);
+}
+
+
+
+void
+AMLPopulationActor::set_best()
+{
+    AMLCharacter* best_player = players[0];
+    float score = best_player->score;
+
+    if (score > overall_best_score)
+    {
+        overall_best_score = score;
+        best_brain = best_player->network;
+        generation_best_brains.Add(best_brain);
+        staleness = 0;
+        return;
+    }
+
+    staleness++;
+}
+
+void
+AMLPopulationActor::create_child(int specie_index)
+{
+    StaticRandomNumberGenerator.seed();
+    auto rand_chance = StaticRandomNumberGenerator.GetUniform(0, 1);
+    // interspecies crossover
+    if (rand_chance <= interspecies_crossover_chance && species.Num() > 1)
+    {
+        int other_specie_index = select_specie();
+        while (specie_index == other_specie_index)
+        {
+            other_specie_index = select_specie();
+        }
+        crossover_and_add(species[specie_index].select_player(),
+                          species[other_specie_index].select_player());
+        generation_info.interspecies_crossover++;
+    }
+    // Just mutation
+    else if (rand_chance < offspring_mutation_chance || species[specie_index].players.Num() < 2)
+    {
+        MLGenome child_genome = species[specie_index].select_player()->network;
+        child_genome.mutate(innovation_history, mutation_constant);
+        children_genomes.Add(child_genome);
+        generation_info.mutation_count++;
+    }
+    // Crossover between the same species
+    else
+    {
+        AMLCharacter* player1 = species[specie_index].select_player();
+        AMLCharacter* player2 = species[specie_index].select_player();
+        while (player1 == player2)
+        {
+            player2 = species[specie_index].select_player();
+        }
+        crossover_and_add(player1, player2);
+        generation_info.crossover++;
+    }
+}
+
+void
+AMLPopulationActor::update_fitness_per_specie()
+{
+    for (auto& specie : species)
+    {
+        specie.explicit_fitness_sharing();
+        specie.update_avg_fitness();
+    }
+}
+
+void
+AMLPopulationActor::remove_half()
+{
+    for (auto& specie : species)
+    {
+        specie.remove_bottom_half();
+    }
 }
 
 struct is_stale
@@ -141,64 +241,6 @@ void
 AMLPopulationActor::remove_stale_species()
 {
     species.RemoveAll([](const MLSpecie& sp) { return sp.staleness > 15; });
-}
-
-void
-AMLPopulationActor::set_best()
-{
-    for (auto& it : players)
-    {
-        if (it->fitness > overall_best_score)
-        {
-            generation_best_brains.Add(it->network);
-            overall_best_score = it->fitness;
-            best_brain = it->network;
-        }
-    }
-}
-
-void
-AMLPopulationActor::create_child(int specie_index)
-{
-    StaticRandomNumberGenerator.seed();
-    auto rand_chance = StaticRandomNumberGenerator.GetUniform(0, 1);
-    if (rand_chance <= 0.001 && species.Num() > 1)
-    {
-        int other_specie_index = select_specie();
-        while (specie_index == other_specie_index)
-        {
-            other_specie_index = select_specie();
-        }
-        crossover_and_add(species[specie_index].select_player(),
-                          species[other_specie_index].select_player());
-    }
-    else if (rand_chance < 0.25 || species[specie_index].players.Num() < 2)
-    {
-        MLGenome child_genome = species[specie_index].select_player()->network;
-        child_genome.mutate(innovation_history);
-        children_genomes.Add(child_genome);
-    }
-    else
-    {
-        AMLCharacter* player1 = species[specie_index].select_player();
-        AMLCharacter* player2 = species[specie_index].select_player();
-        while (player1 == player2)
-        {
-            player2 = species[specie_index].select_player();
-        }
-        crossover_and_add(player1, player2);
-    }
-}
-
-void
-AMLPopulationActor::remove_half()
-{
-    for (auto& specie : species)
-    {
-        specie.remove_bottom_half();
-        specie.explicit_fitness_sharing();
-        specie.update_avg_fitness();
-    }
 }
 
 void
@@ -217,20 +259,23 @@ AMLPopulationActor::remove_useless_species()
 }
 
 void
-AMLPopulationActor::calculate_fitness()
+AMLPopulationActor::calculate_all_player_fitness()
 {
     for (auto& player : players)
     {
-        player->calculate_fitness();
+        player->calculate_score();
     }
 }
 
 void
 AMLPopulationActor::classify_species()
 {
-    species.Empty();
-    bool specie_found;
+    for (auto& specie : species) 
+	{
+        specie.clear_players();
+	}
 
+    bool specie_found;
     for (auto& player : players)
     {
         specie_found = false;
@@ -253,22 +298,58 @@ AMLPopulationActor::classify_species()
 void
 AMLPopulationActor::new_generation()
 {
+    AMLCharacter* previous_gen_elite = players[0];
     children_genomes.Empty();
     children_genomes.Reserve(players.Num());
-    AMLCharacter* previous_gen_elite = players[0];
+
     classify_species();
-    calculate_fitness();
+    calculate_all_player_fitness();
     sort();
-    remove_half();
-    set_best();
+    AMLCharacter* current_best = players[0];
     remove_stale_species();
+    remove_half();
+	update_fitness_per_specie();
     remove_useless_species();
+    update_mutation_constant();
+    set_best();
     curr_max_check_point = 0;
-    for (auto& it : players)
+
+
+    for (auto& player : players)
     {
-        if (curr_max_check_point < it->checkpoint_count)
-            curr_max_check_point = it->checkpoint_count;
+        if (curr_max_check_point < player->checkpoint_count)
+            curr_max_check_point = player->checkpoint_count;
+		//TODO_OGUZ: DEBUG ONLY
+        if (player->is_elite) 
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Elite score: %f"), player->score);
+		}
     }
+
+	// TODO_OGUZ: DEBUG BLOCK
+    {
+        UE_LOG(LogTemp,
+               Warning,
+               TEXT("Gen: %d, total mutations: %d, specie count: %d"),
+               current_geneneration,
+               innovation_history.Num(),
+               species.Num());
+
+        UE_LOG(LogTemp, Warning, TEXT("Max checkpoint: %d"), curr_max_check_point);
+        UE_LOG(LogTemp, Warning, TEXT("Mutation Constant: %f Staleness: %f"), mutation_constant, staleness);
+		float avg_fitness = 0;
+		float avg_score = 0;
+		for (auto& specie : species)
+        {
+			avg_fitness += specie.avg_fitness;
+			avg_score += specie.avg_score;
+		}
+        avg_fitness /= species.Num();
+        avg_score /= species.Num();
+		UE_LOG(LogTemp, Warning, TEXT("Species Avg Fitness: %f  Avg Score: %f"), avg_fitness, avg_score);
+
+    }
+	// TODO_OGUZ: DEBUG BLOCK
 
     int avg_fitness_sum = 0;
     for (auto& specie : species)
@@ -276,10 +357,17 @@ AMLPopulationActor::new_generation()
         avg_fitness_sum += specie.avg_fitness;
     }
 
+	children_genomes.Add(current_best->network);
+	
     for (int i = 0; i < species.Num(); i++)
     {
-        children_genomes.Add(species[i].players[0]->network);
-        int allowed_children_count = (species[i].avg_fitness * players.Num() / avg_fitness_sum) - 1;
+        if (species[i].players[0] != current_best)
+        {
+            generation_info.copy_count++;
+            children_genomes.Add(species[i].players[0]->network);
+		}
+
+		int allowed_children_count = (species[i].avg_fitness * players.Num() / avg_fitness_sum) - 1;
 
         for (int j = 0; j < allowed_children_count; j++)
         {
@@ -290,6 +378,7 @@ AMLPopulationActor::new_generation()
     if (children_genomes.Num() < players.Num())
     {
         children_genomes.Add(previous_gen_elite->network);
+		generation_info.copy_count++;
     }
 
     while (children_genomes.Num() < players.Num())
@@ -307,6 +396,27 @@ AMLPopulationActor::new_generation()
     }
     cur_gen_best_score = 0;
     current_geneneration++;
+    generation_info =  {0};
+}
+
+void
+AMLPopulationActor::update_mutation_constant()
+{
+    if (staleness > staleness_constant)
+    {
+        if (mutation_constant < max_mutation_constant)
+        {
+            mutation_constant = mutation_constant + (staleness_constant * mutation_increase_rate);
+        }
+        else
+        {
+			mutation_constant = max_mutation_constant;
+        }
+	}
+	else
+    {
+         mutation_constant = 1;
+	}
 }
 
 int
@@ -330,3 +440,4 @@ AMLPopulationActor::select_specie()
     }
     return 0;
 }
+
