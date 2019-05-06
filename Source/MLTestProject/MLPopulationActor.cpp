@@ -10,6 +10,8 @@ AMLPopulationActor::AMLPopulationActor()
     PrimaryActorTick.bCanEverTick = true;
     start_point_tag = TEXT("PlayerStartTag");
     children_genomes.Reserve(population_size);
+    current_geneneration = 1;
+    acculamator = 0.f;
 }
 
 // Called when the game starts or when spawned
@@ -21,7 +23,8 @@ AMLPopulationActor::BeginPlay()
     UGameplayStatics::GetAllActorsWithTag(GetWorld(), start_point_tag, start_point_arr);
     if (start_point_arr.Num() >= 1)
     {
-        default_start_point = start_point_arr[0];
+        default_start_location = start_point_arr[0]->GetActorLocation();
+        default_start_rotation = start_point_arr[0]->GetActorRotation();
     }
     spawn_new_batch();
     for (auto& it : players)
@@ -35,26 +38,54 @@ AMLPopulationActor::BeginPlay()
 void
 AMLPopulationActor::Tick(float DeltaTime)
 {
-    Super::Tick(DeltaTime);
-	int dead_count = 0;
-    for (auto& player : players)
+    acculamator += DeltaTime;
+    while (acculamator >= dt)
     {
-        if (player->has_crashed)
-        {
-            dead_count++;
-			continue;
-		}
-        player->update(DeltaTime);
+        update(dt);
+        acculamator -= dt;
     }
-    if (dead_count == players.Num())
-    {
-		new_generation();
-	}
 }
 
 void
 AMLPopulationActor::update(float DeltaTime)
 {
+    Super::Tick(DeltaTime);
+    current_gen_time += DeltaTime;
+    if (current_geneneration == 2)
+    {
+        int b = 1321;
+    }
+    int dead_count = 0;
+    float total_speed = 0;
+    for (auto& player : players)
+    {
+        if (player->has_crashed)
+        {
+            dead_count++;
+            continue;
+        }
+        total_speed += player->current_speed;
+        player->update(DeltaTime);
+    }
+    float avg_speed = total_speed / (players.Num() - dead_count);
+
+    if (avg_speed < avg_speed_min_threshold && current_gen_time > 5.0f)
+    {
+        for (auto& player : players)
+        {
+            player->handle_collision();
+        }
+        dead_count = players.Num();
+    }
+
+    if (dead_count == players.Num())
+    {
+        new_generation();
+    }
+    if (current_gen_time - time_interval > 2)
+    {
+        time_interval = current_gen_time;
+    }
 }
 
 void
@@ -65,12 +96,9 @@ AMLPopulationActor::spawn_new_batch()
 
     for (int i = 0; i < population_size; i++)
     {
-        AMLCharacter* spawned_actor =
-          GetWorld()->SpawnActor<AMLCharacter>(AMLCharacter::StaticClass(),
-                                               default_start_point->GetActorLocation(),
-                                               default_start_point->GetActorRotation(),
-                                               *param);
-        assert(!spawned_actor->network.nodes.Empty());
+        AMLCharacter* spawned_actor = GetWorld()->SpawnActor<AMLCharacter>(
+          AMLCharacter::StaticClass(), default_start_location, default_start_rotation, *param);
+        assert(spawned_actor->network.nodes.Num() != 0);
         players.Add(spawned_actor);
     }
     delete param;
@@ -97,7 +125,7 @@ AMLPopulationActor::crossover_and_add(AMLCharacter* parent1, AMLCharacter* paren
     for (int i = 0; i < genome1.connections.Num(); i++)
     {
         MLConnection other_connection;
-        if (genome1.has_matching_innovation(genome1.connections[i].innovation_number,
+        if (genome2.has_matching_innovation(genome1.connections[i].innovation_number,
                                             other_connection))
         {
             bool is_enabled = true;
@@ -125,10 +153,10 @@ AMLPopulationActor::crossover_and_add(AMLCharacter* parent1, AMLCharacter* paren
         {
             offspring.connections.Add(genome1.connections[i]);
         }
-        offspring.create_nodes_output_connection();
-        offspring.mutate(innovation_history, mutation_constant);
-        children_genomes.Add(offspring);
     }
+    offspring.create_nodes_output_connection();
+    offspring.mutate(innovation_history, mutation_constant);
+    children_genomes.Add(offspring);
 }
 
 inline static bool
@@ -140,7 +168,7 @@ specie_predicate(const MLSpecie& sp1, const MLSpecie& sp2)
 inline static bool
 players_predicate(const AMLCharacter* player1, const AMLCharacter* player2)
 {
-	return player1->score > player2->score;
+    return player1->score > player2->score;
 }
 
 void
@@ -151,10 +179,8 @@ AMLPopulationActor::sort()
         specie.sort();
     }
     species.Sort(specie_predicate);
-	Algo::Sort(players, players_predicate);
+    Algo::Sort(players, players_predicate);
 }
-
-
 
 void
 AMLPopulationActor::set_best()
@@ -246,7 +272,11 @@ AMLPopulationActor::remove_stale_species()
 void
 AMLPopulationActor::remove_useless_species()
 {
-    int avg_fitness_sum = 0;
+    if (species.Num() == 1)
+    {
+        return;
+    }
+    float avg_fitness_sum = 0;
     int player_count = 0;
     for (auto& specie : species)
     {
@@ -270,10 +300,10 @@ AMLPopulationActor::calculate_all_player_fitness()
 void
 AMLPopulationActor::classify_species()
 {
-    for (auto& specie : species) 
-	{
+    for (auto& specie : species)
+    {
         specie.clear_players();
-	}
+    }
 
     bool specie_found;
     for (auto& player : players)
@@ -290,7 +320,8 @@ AMLPopulationActor::classify_species()
         }
         if (!specie_found)
         {
-            species.Add(MLSpecie(player));
+            MLSpecie new_species = MLSpecie(player);
+            species.Add(new_species);
         }
     }
 }
@@ -298,6 +329,16 @@ AMLPopulationActor::classify_species()
 void
 AMLPopulationActor::new_generation()
 {
+    int elite_count = 0;
+    for (auto& player : players)
+    {
+        if (player->network.is_elite)
+        {
+            elite_count++;
+        }
+    }
+    check(elite_count <= 1);
+
     AMLCharacter* previous_gen_elite = players[0];
     children_genomes.Empty();
     children_genomes.Reserve(players.Num());
@@ -305,80 +346,159 @@ AMLPopulationActor::new_generation()
     classify_species();
     calculate_all_player_fitness();
     sort();
+    TArray<float> scores_sorted;
+    scores_sorted.Reserve(players.Num());
+    for (auto& player : players)
+    {
+        scores_sorted.Add(player->score);
+    }
     AMLCharacter* current_best = players[0];
     remove_stale_species();
     remove_half();
-	update_fitness_per_specie();
+    update_fitness_per_specie();
     remove_useless_species();
     update_mutation_constant();
     set_best();
+
     curr_max_check_point = 0;
-
-
     for (auto& player : players)
     {
         if (curr_max_check_point < player->checkpoint_count)
-            curr_max_check_point = player->checkpoint_count;
-		//TODO_OGUZ: DEBUG ONLY
-        if (player->is_elite) 
         {
-            UE_LOG(LogTemp, Warning, TEXT("Elite score: %f"), player->score);
-		}
+            curr_max_check_point = player->checkpoint_count;
+        }
     }
 
-	// TODO_OGUZ: DEBUG BLOCK
+    // TODO_OGUZ: DEBUG BLOCK
     {
+        for (auto& player : players)
+        {
+            if (player->network.is_elite)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Elite score: %f"), player->score);
+                /* check(player->inputs.Num() == player->prev_inputs.Num());
+                 check(player->outputs.Num() == player->prev_outputs.Num());
+                 int total_count = player->inputs.Num();
+                 if (player->inputs.Num() > player->prev_inputs.Num())
+                 {
+                     total_count = player->prev_inputs.Num();
+                 }
+
+                 for (int i = 0; i < total_count; i++)
+                 {
+                     check(player->inputs[i] == player->prev_inputs[i]);
+                 }
+                 total_count = player->outputs.Num();
+                 if (player->outputs.Num() > player->prev_outputs.Num())
+                 {
+                     total_count = player->prev_outputs.Num();
+                 }
+
+                 for (int i = 0; i < total_count; i++)
+                 {
+                     check(player->outputs[i] == player->prev_outputs[i]);
+                 }*/
+                /*UE_LOG(LogTemp, Warning, TEXT("Elite connections:"));
+                for (auto& node : player->network.nodes)
+                {
+                    for (auto& connection : node.output_connections)
+                        UE_LOG(LogTemp,
+                               Warning,
+                               TEXT("%d %d %f"),
+                               connection.from_node,
+                               connection.to_node,
+                               connection.weight);
+                }*/
+            }
+            for (auto& node : player->network.nodes)
+            {
+                for (auto& connection : node.output_connections)
+                    UE_LOG(LogTemp,
+                           Warning,
+                           TEXT("%d %d %f"),
+                           connection.from_node,
+                           connection.to_node,
+                           connection.weight);
+            }
+        }
+
         UE_LOG(LogTemp,
                Warning,
                TEXT("Gen: %d, total mutations: %d, specie count: %d"),
                current_geneneration,
                innovation_history.Num(),
                species.Num());
-
+        UE_LOG(LogTemp, Warning, TEXT("Max Score: %f"), players[0]->score);
         UE_LOG(LogTemp, Warning, TEXT("Max checkpoint: %d"), curr_max_check_point);
-        UE_LOG(LogTemp, Warning, TEXT("Mutation Constant: %f Staleness: %f"), mutation_constant, staleness);
-		float avg_fitness = 0;
-		float avg_score = 0;
-		for (auto& specie : species)
+        UE_LOG(LogTemp,
+               Warning,
+               TEXT("Mutation Constant: %f Staleness: %d"),
+               mutation_constant,
+               staleness);
+        float avg_fitness = 0;
+        float avg_score = 0;
+        for (auto& specie : species)
         {
-			avg_fitness += specie.avg_fitness;
-			avg_score += specie.avg_score;
-		}
+            avg_fitness += specie.avg_fitness;
+            avg_score += specie.avg_score;
+        }
         avg_fitness /= species.Num();
         avg_score /= species.Num();
-		UE_LOG(LogTemp, Warning, TEXT("Species Avg Fitness: %f  Avg Score: %f"), avg_fitness, avg_score);
-
+        UE_LOG(
+          LogTemp, Warning, TEXT("Species Avg Fitness: %f  Avg Score: %f"), avg_fitness, avg_score);
     }
-	// TODO_OGUZ: DEBUG BLOCK
+    // TODO_OGUZ: DEBUG BLOCK
 
-    int avg_fitness_sum = 0;
+    float avg_fitness_sum = 0;
     for (auto& specie : species)
     {
         avg_fitness_sum += specie.avg_fitness;
     }
 
-	children_genomes.Add(current_best->network);
-	
+    children_genomes.Add(current_best->network);
+    // DEBUG
+    // TArray<float> elite_prev_inputs = current_best->inputs;
+    // TArray<float> elite_prev_outputs = current_best->outputs;
+
+    /* UE_LOG(LogTemp, Warning, TEXT("Current best connections:"));
+     for (auto& node : current_best->network.nodes)
+     {
+         for (auto& connection : node.output_connections)
+             UE_LOG(LogTemp,
+                    Warning,
+                    TEXT("%d %d %f"),
+                    connection.from_node,
+                    connection.to_node,
+                    connection.weight);
+     }*/
+
     for (int i = 0; i < species.Num(); i++)
     {
         if (species[i].players[0] != current_best)
         {
             generation_info.copy_count++;
             children_genomes.Add(species[i].players[0]->network);
-		}
+            check(children_genomes.Last().connections.Num() >= 20)
+        }
 
-		int allowed_children_count = (species[i].avg_fitness * players.Num() / avg_fitness_sum) - 1;
+        int allowed_children_count = (species[i].avg_fitness * players.Num() / avg_fitness_sum) - 1;
 
         for (int j = 0; j < allowed_children_count; j++)
         {
             create_child(i);
+            check(children_genomes.Last().connections.Num() >= 20)
         }
     }
 
     if (children_genomes.Num() < players.Num())
     {
         children_genomes.Add(previous_gen_elite->network);
-		generation_info.copy_count++;
+        generation_info.copy_count++;
+    }
+
+    for (auto& player : players)
+    {
+        check(player->network.connections.Num() >= 20);
     }
 
     while (children_genomes.Num() < players.Num())
@@ -392,11 +512,19 @@ AMLPopulationActor::new_generation()
         it = players[i];
         it->network = children_genomes[i];
         it->network.reset_genome();
-        it->reset_player();
+        it->reset_player(default_start_location, default_start_rotation);
+        check(it->network.connections.Num() >= 20)
     }
+    players[0]->network.is_elite = true;
+
     cur_gen_best_score = 0;
+    current_gen_time = 0;
     current_geneneration++;
-    generation_info =  {0};
+    generation_info = { 0 };
+
+    // DEBUG
+    // players[0]->prev_inputs = elite_prev_inputs;
+    // players[0]->prev_outputs = elite_prev_outputs;
 }
 
 void
@@ -410,13 +538,13 @@ AMLPopulationActor::update_mutation_constant()
         }
         else
         {
-			mutation_constant = max_mutation_constant;
+            mutation_constant = max_mutation_constant;
         }
-	}
-	else
+    }
+    else
     {
-         mutation_constant = 1;
-	}
+        mutation_constant = 1;
+    }
 }
 
 int
@@ -440,4 +568,3 @@ AMLPopulationActor::select_specie()
     }
     return 0;
 }
-

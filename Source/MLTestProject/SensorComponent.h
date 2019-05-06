@@ -30,8 +30,8 @@ class MLTESTPROJECT_API USensorComponent : public USceneComponent
     void RayCast(const FVector& SocketLocation,
                  const FVector& SocketForward,
                  const FVector& SocketRight,
-				 TArray<float>& sensor_outputs,
-				 int starting_index);
+                 TArray<float>& sensor_outputs,
+                 int starting_index);
 
     void SetRayCastDirections(bool CastForward = false,
                               bool CastBehind = false,
@@ -41,8 +41,8 @@ class MLTESTPROJECT_API USensorComponent : public USceneComponent
                               bool CastDown = false);
 
     float RayDistanceFromCenter = 20.0f;
-    float RayTravelDistance = 1000.0f;
-    float RayWidth = 5.0f;
+    float RayTravelDistance = 3000.0f;
+    float RayWidth = 15.0f;
 
     int DirectionCount = 6;
     FVector* RayDirections;

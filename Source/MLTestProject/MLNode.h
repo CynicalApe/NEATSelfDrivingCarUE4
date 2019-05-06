@@ -14,13 +14,14 @@ class MLTESTPROJECT_API MLNode
 {
   public:
     MLNode();
+    MLNode(const MLNode& src);
     MLNode(int node_number, int layer, TArray<MLConnection>* ptr);
     ~MLNode();
 
     void feed_forward(TArray<MLNode>& genome_nodes);
     void add_connection(const MLConnection& connection);
-    bool is_connected(const MLNode& node, TArray<MLNode>& genome_nodes);
-    MLNode operator=(const MLNode& src);
+    bool is_connected(const MLNode& node);
+    void operator=(const MLNode& src);
     int number;
     float input;
     float output;

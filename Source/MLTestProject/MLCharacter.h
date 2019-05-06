@@ -20,7 +20,6 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     // Override functions
     virtual void BeginPlay() override;
 
-
   public:
     // Override functions
     virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -38,9 +37,9 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     void handle_single_attachment(USceneComponent* ParentComponent,
                                   USceneComponent* ComponentToAttach,
                                   FName& SocketName);
-	UFUNCTION(BlueprintCallable, Category="Collision")
+    UFUNCTION(BlueprintCallable, Category = "Collision")
     void handle_collision();
-	void update(float DeltaTime);
+    void update(float DeltaTime);
 
     // Input functions
     void pitch_camera(float AxisValue);
@@ -55,13 +54,15 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     void update_rotation(float dt, float acceleration_input);
     void check_point_update(void* ptr);
     void tick_sensors();
-    void reset_player();
+    void reset_player(const FVector& start_point_location, const FRotator& start_point_rotation);
     void normalize(float& val, float min, float max);
-    inline float fvector_lenght(const FVector& vec) { 
-		return FMath::Sqrt(vec.X * vec.X + vec.Y * vec.Y + vec.Z * vec.Z); 
-	}
+    inline float fvector_lenght(const FVector& vec)
+    {
+        return FMath::Sqrt(vec.X * vec.X + vec.Y * vec.Y + vec.Z * vec.Z);
+    }
 
     void* prev_check_point = NULL;
+    void* prev_prev_check_point = NULL;
 
     class UStaticMeshComponent* StaticMesh = nullptr;
     class USpringArmComponent* camera_spring_arm = nullptr;
@@ -93,29 +94,39 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
 
     TArray<float> sensor_outputs;
     float current_speed;
-    FVector2D current_velocity;
     // -1 Left, 1 Right
     float steering_direction;
     FVector acceleration_vector;
     FVector velocity_vector;
-	FVector lateral_velocity;
-	FVector lateral_friction;
-	FVector backward_friction;
+    FVector lateral_velocity;
+    FVector lateral_friction;
+    FVector backward_friction;
 
-    const float max_speed = 1300.0;
+    const float max_speed = 600.0f;
     float max_sensor_input;
     const int ML_input_count = 9;
     const int ML_output_count = 2;
     const int velocity_input_index = 8;
+    const float check_point_score_mult = 100;
 
     float brake_mult = 250;
     float thrust = 500;
     float rotation_speed = 30;
     float lateral_friction_const = 15;
     float backward_friction_const = 0.1;
-	float stale_timer = 0;
-    const float destruction_distance = 20.0f;
-	const float stale_limit = 3.5f;
-	bool has_crashed = false;
+    float stale_timer = 0;
+    const float destruction_distance = 50.0f;
+    const float stale_limit = 3.5f;
+    bool has_crashed = false;
+
+    // FOR DEBUG
+    int pushed_frame_count = 0;
+    int read_frame_count = 0;
+    TArray<float> inputs;
+    TArray<float> outputs;
+    TArray<float> prev_inputs;
+    TArray<float> prev_outputs;
+    int index;
+
   private:
 };

@@ -31,6 +31,7 @@ AMLCheckPoint::AMLCheckPoint()
     }
     StaticMesh->SetVisibility(true);
     // Register Events
+
     OnActorBeginOverlap.AddDynamic(this, &AMLCheckPoint::OnOverlapBegin);
     OnActorEndOverlap.AddDynamic(this, &AMLCheckPoint::OnOverlapEnd);
     TriggerTag = FName("MLTrigger");
@@ -63,18 +64,8 @@ AMLCheckPoint::Tick(float DeltaTime)
 void
 AMLCheckPoint::OnOverlapBegin(class AActor* OverlappedActor, class AActor* OtherActor)
 {
-    // check if Actors do not equal nullptr and that
-    if (OtherActor && (OtherActor != this))
-    {
-        // print to screen using above defined method when actor enters trigger box
-        print("Overlap Begin");
-        printFString("Overlapped Actor = %s", *OverlappedActor->GetName());
-    }
-
     if (OtherActor->ActorHasTag(TriggerTag))
     {
-        UE_LOG(LogTemp, Warning, TEXT("GOOD JOB %s"), *OtherActor->GetName());
-
         ((AMLCharacter*)OtherActor)->check_point_update(this);
     }
 }
@@ -82,10 +73,4 @@ AMLCheckPoint::OnOverlapBegin(class AActor* OverlappedActor, class AActor* Other
 void
 AMLCheckPoint::OnOverlapEnd(class AActor* OverlappedActor, class AActor* OtherActor)
 {
-    if (OtherActor && (OtherActor != this))
-    {
-        // print to screen using above defined method when actor leaves trigger box
-        print("Overlap Ended");
-        printFString("%s has left the Trigger Box", *OtherActor->GetName());
-    }
 }

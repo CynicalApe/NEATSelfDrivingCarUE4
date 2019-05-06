@@ -16,6 +16,7 @@ MLGenome::MLGenome(int icount, int ocount, bool cross_over)
   , layer_count(2)
   , node_count(0)
 {
+    is_elite = false;
     if (cross_over)
         return;
     nodes.Reserve(icount + ocount + 1);
@@ -28,6 +29,7 @@ MLGenome::MLGenome(int icount, int ocount, bool cross_over)
         nodes.Add(MLNode(node_count++, 1, NULL));
     }
     bias_node_index = node_count++;
+    check(bias_node_index == 11 && "BIAS MODIFIED!");
     nodes.Add(MLNode(bias_node_index, 0, NULL));
 }
 
@@ -50,27 +52,37 @@ MLGenome::create_empty_genome(int icount, int ocount, bool cross_over)
         nodes.Add(MLNode(node_count++, 1, NULL));
     }
     bias_node_index = node_count++;
+    check(bias_node_index == 11 && "BIAS MODIFIED!");
     nodes.Add(MLNode(bias_node_index, 0, NULL));
 }
 
 MLGenome::MLGenome(const MLGenome& src)
 {
+    nodes.Empty();
+    connections.Empty();
+    nodes.Reserve(src.nodes.Num());
+    connections.Reserve(src.connections.Num());
+
     input_count = src.input_count;
     output_count = src.output_count;
     layer_count = src.layer_count;
     node_count = src.node_count;
-	
-    nodes.Reserve(src.nodes.Num());
+    bias_node_index = src.bias_node_index;
+    is_elite = src.is_elite;
     for (auto& it : src.nodes)
     {
+        if (it.output_connections.Num() == 4)
+        {
+            int a = 10;
+        }
         nodes.Add(it);
     }
 
-    connections.Reserve(src.connections.Num());
     for (auto& it : src.connections)
     {
         connections.Add(it);
     }
+    // create_nodes_output_connection();
 }
 
 MLGenome::~MLGenome() {}
@@ -89,6 +101,10 @@ MLGenome::new_connection(int from_node,
 
     int connection_number = add_innovation_to_history(innovation_history, from_node, to_node);
     MLConnection connection = MLConnection(from_node, to_node, weight, connection_number);
+    for (auto& out_connection : nodes[from_node].output_connections)
+    {
+        check(!(out_connection.from_node == from_node && out_connection.to_node == to_node));
+    }
     connections.Add(connection);
     nodes[from_node].output_connections.Add(connection);
 }
@@ -115,11 +131,12 @@ MLGenome::add_innovation_to_history(TArray<MLInnovation>& innovation_history,
                                     int from_node,
                                     int to_node)
 {
+    check(nodes[from_node].layer < nodes[to_node].layer);
     bool is_new = true;
     int connection_number = innovation_history.Num();
     for (auto& innovation : innovation_history)
     {
-        if (innovation.is_same_innovation(connections, from_node, to_node))
+        if (innovation.is_same_innovation(from_node, to_node))
         {
             is_new = false;
             connection_number = innovation.innovation_number;
@@ -134,8 +151,8 @@ MLGenome::add_innovation_to_history(TArray<MLInnovation>& innovation_history,
         {
             inno_numbers.Add(connection.innovation_number);
         }
+        innovation_history.Add(MLInnovation(from_node, to_node, connection_number, inno_numbers));
     }
-    innovation_history.Add(MLInnovation(from_node, to_node, connection_number, inno_numbers));
     return connection_number;
 }
 
@@ -158,13 +175,14 @@ MLGenome::add_random_connection(TArray<MLInnovation>& innovation_history)
     StaticRandomNumberGenerator.seed();
     int index_1 = (int)StaticRandomNumberGenerator.GetUniform(0, nodes.Num());
     int index_2 = (int)StaticRandomNumberGenerator.GetUniform(0, nodes.Num());
-    while (can_make_connection(nodes[index_1], nodes[index_2]))
+    while (!can_make_connection(nodes[index_1], nodes[index_2]))
     {
         StaticRandomNumberGenerator.seed();
         index_2 = (int)StaticRandomNumberGenerator.GetUniform(0, nodes.Num());
+        index_1 = (int)StaticRandomNumberGenerator.GetUniform(0, nodes.Num());
     }
 
-    if (nodes[index_1].layer > nodes[index_2].layer)
+    if (nodes[index_1].layer < nodes[index_2].layer)
         new_connection(index_1, index_2, innovation_history);
     else
         new_connection(index_2, index_1, innovation_history);
@@ -188,14 +206,14 @@ MLGenome::is_fully_connected()
             max_connections += node_count_in_layer[i] * node_count_in_layer[j];
         }
     }
-    assert(max_connections >= connections.Num());
+    check(max_connections >= connections.Num());
     return max_connections == connections.Num();
 }
 
 bool
 MLGenome::can_make_connection(MLNode& node1, MLNode& node2)
 {
-    return (node1.layer != node2.layer) && !node1.is_connected(node2, nodes);
+    return (node1.layer != node2.layer) && !node1.is_connected(node2);
 }
 
 bool
@@ -223,8 +241,8 @@ MLGenome::feed_forward(TArray<float>& sensor_inputs)
     }
     for (auto& node : nodes)
     {
-		node.output=0;
-	}
+        node.output = 0;
+    }
     nodes[bias_node_index].output = 1.0f;
 
     for (int i = 0; i < layer_count; i++)
@@ -249,16 +267,16 @@ void
 MLGenome::add_node_between(int f_node, int t_node, TArray<MLInnovation>& innovation_history)
 {
     int new_node_layer = nodes[f_node].layer + 1;
-    if (nodes[t_node].layer - nodes[f_node].layer)
+    if (nodes[t_node].layer - nodes[f_node].layer == 1)
     {
         for (auto& node : nodes)
         {
             if (node.layer >= new_node_layer)
             {
-                node.layer += 1;
+                node.layer++;
             }
         }
-        layer_count += 1;
+        layer_count++;
     }
     float weight = 0;
     for (auto& connection : nodes[f_node].output_connections)
@@ -271,9 +289,10 @@ MLGenome::add_node_between(int f_node, int t_node, TArray<MLInnovation>& innovat
         }
     }
     nodes.Add(MLNode(node_count++, new_node_layer, NULL));
+    check(new_node_layer < layer_count);
     new_connection(f_node, node_count - 1, innovation_history, 1);
     new_connection(node_count - 1, t_node, innovation_history, weight);
-    new_connection(bias_node_index, node_count - 1, innovation_history, 1);
+    new_connection(bias_node_index, node_count - 1, innovation_history, 0);
 }
 
 void
@@ -282,20 +301,22 @@ MLGenome::add_random_node(TArray<MLInnovation>& innovation_history)
     StaticRandomNumberGenerator.seed();
     int index_1 = (int)StaticRandomNumberGenerator.GetUniform(0, nodes.Num());
     int index_2 = (int)StaticRandomNumberGenerator.GetUniform(0, nodes.Num());
-    while (index_1 == index_2 || index_1 == bias_node_index || index_2 == bias_node_index)
+    while (index_1 == index_2 || nodes[index_1].layer == nodes[index_2].layer ||
+           index_1 == bias_node_index || index_2 == bias_node_index)
     {
+        index_1 = (int)StaticRandomNumberGenerator.GetUniform(0, nodes.Num());
         index_2 = (int)StaticRandomNumberGenerator.GetUniform(0, nodes.Num());
         StaticRandomNumberGenerator.seed();
     }
 
-    if (index_1 > index_2)
+    if (nodes[index_1].layer < nodes[index_2].layer)
         add_node_between(index_1, index_2, innovation_history);
     else
         add_node_between(index_2, index_1, innovation_history);
 }
 
 void
-MLGenome::mutate(TArray<MLInnovation>& innovation_history,float mutation_constant)
+MLGenome::mutate(TArray<MLInnovation>& innovation_history, float mutation_constant)
 {
     StaticRandomNumberGenerator.seed();
     float prop = StaticRandomNumberGenerator.GetUniform(0, 1);
@@ -311,7 +332,7 @@ MLGenome::mutate(TArray<MLInnovation>& innovation_history,float mutation_constan
     StaticRandomNumberGenerator.seed();
     prop = StaticRandomNumberGenerator.GetUniform(0, 1);
 
-    if (add_new_connection_prob * mutation_constant)
+    if (prop < add_new_connection_prob * mutation_constant)
     {
         add_random_connection(innovation_history);
     }
@@ -342,28 +363,33 @@ MLGenome::reset_genome()
         node.input = 0.0f;
         node.output = 0.0f;
     }
+    is_elite = false;
 }
-
-
 
 void
 MLGenome::operator=(const MLGenome& src)
 {
+    nodes.Empty();
+    connections.Empty();
+    nodes.Reserve(src.nodes.Num());
+    connections.Reserve(src.connections.Num());
+
     input_count = src.input_count;
     output_count = src.output_count;
     node_count = src.node_count;
     layer_count = src.layer_count;
     bias_node_index = src.bias_node_index;
+    is_elite = src.is_elite;
 
-    nodes.Reserve(src.nodes.Num());
+    check(bias_node_index == 11 && "BIAS MODIFIED!");
     for (auto& it : src.nodes)
     {
         nodes.Add(it);
     }
 
-    connections.Reserve(src.connections.Num());
     for (auto& it : src.connections)
     {
         connections.Add(it);
     }
+    // create_nodes_output_connection();
 }

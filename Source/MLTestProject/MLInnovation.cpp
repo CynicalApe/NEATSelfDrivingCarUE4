@@ -25,36 +25,7 @@ MLInnovation::MLInnovation(int f_node, int t_node, int i_number, TArray<int>& in
 MLInnovation::~MLInnovation() {}
 
 bool
-MLInnovation::is_same_innovation(TArray<MLConnection>& genome_connections,
-                                 int out_from_node,
-                                 int out_to_node)
+MLInnovation::is_same_innovation(int out_from_node, int out_to_node)
 {
     return (out_from_node == from_node && out_to_node == to_node);
 }
-
-// bool
-// MLInnovation::is_same_innovation(TArray<MLConnection>& genome_connections,
-//                                 int out_from_node,
-//                                 int out_to_node)
-//{
-//    if (genome_connections.Num() == innovation_number)
-//    {
-//        if (out_from_node == from_node && out_to_node == to_node)
-//        {
-//            for (auto& connection : genome_connections)
-//            {
-//                bool found_connection;
-//                for (auto& innovation_number : innovation_history)
-//                {
-//                    if (connection.innovation_number == innovation_number)
-//                        found_connection = true;
-//                }
-//                if (!found_connection)
-//                {
-//                    return false;
-//                }
-//            }
-//            return true;
-//        }
-//    }
-//}

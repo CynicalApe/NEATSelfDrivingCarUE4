@@ -62,32 +62,36 @@ class MLTESTPROJECT_API AMLPopulationActor : public AActor
 
     // ML info
     MLGenome best_brain;
-    int population_size = 100;
+    int population_size = 2;
     int staleness = 0;
     int staleness_constant = 3;
     int max_mutation_constant = 100;
     float mutation_constant = 1;
     float mutation_increase_rate = 0.8;
+    float acculamator;
     const float interspecies_crossover_chance = 0.003;
     const float crossover_chance = 0.75;
     const float offspring_mutation_chance = 0.25;
+    const float avg_speed_min_threshold = 100;
+    const float dt = 1 / 30.0;
+    TArray<MLConnection> prev_connections;
 
     // Runtime info
     TArray<MLGenome> generation_best_brains;
     int current_geneneration;
     int cur_gen_best_score;
-    int overall_best_score;
+    float overall_best_score;
     int car_no_to_simulate;
     int curr_max_check_point;
+    float current_gen_time;
 
     // Debug info
-    int current_gen_time;
     GENINFO generation_info{ 0 };
+    float time_interval = 0;
 
     // Editor
     TArray<AActor*> start_point_arr;
-    AActor* default_start_point;
+    FVector default_start_location;
+    FRotator default_start_rotation;
     FName start_point_tag;
-
-
 };

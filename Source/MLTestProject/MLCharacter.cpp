@@ -74,7 +74,7 @@ AMLCharacter::AMLCharacter()
     update_editor_properties();
     Tags.Add(FName("MLTrigger"));
     RootComponent->SetMobility(EComponentMobility::Movable);
-    StaticMesh->SetGenerateOverlapEvents(false);
+    StaticMesh->SetGenerateOverlapEvents(true);
     StaticMesh->SetCollisionObjectType(ECC_WorldDynamic);
     StaticMesh->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
     StaticMesh->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
@@ -88,6 +88,7 @@ AMLCharacter::AMLCharacter()
     max_sensor_input = FrontRightSensor->RayTravelDistance;
     velocity_vector = FVector(0.f, 0.f, 0.f);
     acceleration_vector = FVector(0.f, 0.f, 0.f);
+    index = 0;
 }
 
 void
@@ -127,7 +128,16 @@ AMLCharacter::update(float DeltaTime)
     }
     tick_sensors();
     normalize(current_speed, 0, max_speed);
+    if (current_speed == 0)
+    {
+        stale_timer += DeltaTime;
+        if (stale_timer > stale_limit)
+        {
+            has_crashed = true;
+        }
+    }
 
+    // TODO_ALPTUG: send vectors
     sensor_outputs[velocity_input_index] = current_speed;
     for (int i = 0; i < ML_input_count - 1; i++)
     {
@@ -135,9 +145,32 @@ AMLCharacter::update(float DeltaTime)
         {
             has_crashed = true;
         }
-        normalize(sensor_outputs[i], 0, max_sensor_input);
+        // normalize(sensor_outputs[i], 0, max_sensor_input);
     }
+    // if (network.is_elite && !has_crashed)
+    //{
+    //    for (int i = 0; i < sensor_outputs.Num(); i++)
+    //    {
+    //        if (index == 10)
+    //        {
+    //            int a = 1;
+    //        }
+    //        sensor_outputs[i] = prev_inputs[index++];
+    //    }
+    //}
+
     TArray<float> output = network.feed_forward(sensor_outputs);
+
+    /*for (auto& i : sensor_outputs)
+    {
+        inputs.Add(i);
+    }
+    if (network.is_elite)
+    {
+        pushed_frame_count++;
+    }*/
+    // outputs.Add(output[0]);
+    // outputs.Add(output[1]);
 
     if (!CameraInput.IsZero())
     {
@@ -152,6 +185,7 @@ AMLCharacter::update(float DeltaTime)
         update_pos(DeltaTime, output[0]);
         update_rotation(DeltaTime, output[1]);
     }
+
 #else
     {
         update_pos(DeltaTime, MovementInput.X);
@@ -159,14 +193,7 @@ AMLCharacter::update(float DeltaTime)
     }
 #endif
 
-    if (current_speed == 0)
-    {
-		stale_timer+= DeltaTime;
-        if (stale_timer > stale_limit)
-        {
-			has_crashed = true;
-		}
-	}
+    alive_time += DeltaTime;
 }
 
 // Called every frame
@@ -227,11 +254,11 @@ AMLCharacter::update_pos(float dt, float acceleration_input)
     acceleration_vector = actor_forward * acceleration_input * thrust;
     velocity_vector += (acceleration_vector * dt) + ((backward_friction + lateral_friction) * dt);
     current_speed = velocity_vector.Size();
-    FMath::Clamp(current_speed, 0.0f, max_speed);
+    current_speed = FMath::Clamp(current_speed, 0.0f, max_speed);
     if (FVector::DotProduct(velocity_vector, actor_forward) < 0)
     {
         velocity_vector = FVector::ZeroVector;
-		current_speed = 0;
+        current_speed = 0;
     }
     SetActorLocation(GetActorLocation() + velocity_vector * dt);
 }
@@ -336,10 +363,17 @@ AMLCharacter::tick_sensors()
 void
 AMLCharacter::check_point_update(void* ptr)
 {
-    prev_check_point = ptr;
+    if (ptr == prev_check_point || ptr == prev_prev_check_point)
+    {
+        handle_collision();
+    }
     checkpoint_count++;
-    check_point_score += checkpoint_count / (alive_time - last_check_point_time);
+    check_point_score +=
+      check_point_score_mult * checkpoint_count / (alive_time - last_check_point_time);
     last_check_point_time = alive_time;
+
+    prev_prev_check_point = prev_check_point;
+    prev_check_point = ptr;
 }
 
 // Input functions
@@ -365,11 +399,31 @@ AMLCharacter::camera_zoom(float AxisValue)
 }
 
 void
-AMLCharacter::reset_player()
+AMLCharacter::reset_player(const FVector& start_point_location,
+                           const FRotator& start_point_rotation)
 {
+
     fitness = 0;
     checkpoint_count = 0;
+    score = 0;
+    has_crashed = false;
+    alive_time = 0;
+    last_check_point_time = 0;
+    check_point_score = 0;
+    current_speed = 0;
+    prev_check_point = NULL;
+    prev_prev_check_point = NULL;
+    acceleration_vector = FVector::ZeroVector;
+    velocity_vector = FVector::ZeroVector;
+    lateral_velocity = FVector::ZeroVector;
+    lateral_friction = FVector::ZeroVector;
+    backward_friction = FVector::ZeroVector;
     // TODO_OGUZ RESET LOCATION HERE TO RESPAWN
+    SetActorLocationAndRotation(start_point_location, start_point_rotation);
+    // DEBUG
+    index = 0;
+    inputs.Empty();
+    outputs.Empty();
 }
 
 void

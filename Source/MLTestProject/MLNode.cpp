@@ -11,6 +11,20 @@ MLNode::MLNode()
 {
 }
 
+MLNode::MLNode(const MLNode& src) 
+{
+    output_connections.Empty();
+    output_connections.Reserve(src.output_connections.Num());
+    number = src.number;
+    input = src.input;
+    output = src.output;
+    layer = src.layer;
+    for (auto& it : src.output_connections)
+    {
+        output_connections.Add(it);
+    }
+}
+
 MLNode::MLNode(int node_number, int layer /*= 0*/, TArray<MLConnection>* ptr)
   : number(node_number)
   , input(0)
@@ -48,7 +62,7 @@ MLNode::add_connection(const MLConnection& connection)
 }
 
 bool
-MLNode::is_connected(const MLNode& node, TArray<MLNode>& genome_nodes)
+MLNode::is_connected(const MLNode& node)
 {
     if (node.layer == layer)
         return false;
@@ -56,7 +70,7 @@ MLNode::is_connected(const MLNode& node, TArray<MLNode>& genome_nodes)
     {
         for (auto& connection : node.output_connections)
         {
-            if (number == genome_nodes[connection.to_node].number)
+            if (number == connection.to_node)
                 return true;
         }
     }
@@ -64,7 +78,7 @@ MLNode::is_connected(const MLNode& node, TArray<MLNode>& genome_nodes)
     {
         for (auto& connection : output_connections)
         {
-            if (node.number == genome_nodes[connection.to_node].number)
+            if (node.number == connection.to_node)
                 return true;
         }
     }
@@ -72,18 +86,17 @@ MLNode::is_connected(const MLNode& node, TArray<MLNode>& genome_nodes)
     return false;
 }
 
-MLNode
+void
 MLNode::operator=(const MLNode& src)
 {
-    MLNode node;
-    node.number = src.number;
-    node.input = src.input;
-    node.output = src.output;
-    node.layer = src.layer;
-    node.output_connections.Reserve(src.output_connections.Num());
+    output_connections.Empty();
+    output_connections.Reserve(src.output_connections.Num());
+    number = src.number;
+    input = src.input;
+    output = src.output;
+    layer = src.layer;
     for (auto& it : src.output_connections)
     {
-        node.output_connections.Add(it);
+        output_connections.Add(it);
     }
-    return node;
 }

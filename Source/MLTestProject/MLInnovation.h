@@ -16,7 +16,7 @@ class MLTESTPROJECT_API MLInnovation
     MLInnovation(int f_node, int t_node, int i_number, TArray<int>& inno_numbers);
     ~MLInnovation();
 
-    bool is_same_innovation(TArray<MLConnection>& genome_connections, int from_node, int to_node);
+    bool is_same_innovation(int from_node, int to_node);
     int from_node;
     int to_node;
     int innovation_number;

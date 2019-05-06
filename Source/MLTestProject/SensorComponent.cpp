@@ -86,9 +86,9 @@ USensorComponent::TickComponent(float DeltaTime,
 void
 USensorComponent::RayCast(const FVector& SocketLocation,
                           const FVector& SocketForward,
-                          const FVector& SocketRight, 
-						  TArray<float>& sensor_outputs,
-						  int starting_index)
+                          const FVector& SocketRight,
+                          TArray<float>& sensor_outputs,
+                          int starting_index)
 {
     FVector Start = GetComponentLocation();
     FVector Up = FVector::CrossProduct(SocketForward, SocketRight);
@@ -104,16 +104,15 @@ USensorComponent::RayCast(const FVector& SocketLocation,
         if (CastDirections[i])
         {
             HitRays[i] = CastRayInDirection(RayDirections[i], Start, RayHitResults[i]);
-            if (RayHitResults->Distance == 0 || !HitRays[i])
+            if (!HitRays[i])
             {
                 sensor_outputs[starting_index++] = RayTravelDistance;
-          
-			}
-            else 
-            {
-                sensor_outputs[starting_index++] = RayHitResults->Distance;
             }
-			RayHitResults->Reset();
+            else
+            {
+                sensor_outputs[starting_index++] = RayHitResults[i].Distance;
+            }
+            RayHitResults[i].Reset();
         }
     }
 }
@@ -145,9 +144,12 @@ USensorComponent::CastRayInDirection(const FVector& RayDirection,
     FColor DebugLineColor = FColor::Red;
     if (GetWorld()->LineTraceSingleByChannel(HitResult, RealRayStart, RayEnd, ECC_WorldDynamic))
     {
-        RayHit = true;
         DebugLineColor = FColor::Green;
     }
     DrawDebugLine(GetWorld(), RealRayStart, RayEnd, DebugLineColor, false, -1.0f, '\000', RayWidth);
+    if (!HitResult.ImpactPoint.IsZero())
+    {
+        RayHit = true;
+    }
     return RayHit;
 }

@@ -6,6 +6,7 @@
 #include "MLNode.h"
 #include "MLInnovation.h"
 #include "CoreMinimal.h"
+#include <cassert>
 
 /**
  *
@@ -40,25 +41,27 @@ class MLTESTPROJECT_API MLGenome
     void remove_all_connections();
     void reset_genome();
     void operator=(const MLGenome& src);
-	static void cpy(const MLGenome& src, MLGenome& dst) {
-            dst.input_count = src.input_count;
-            dst.output_count = src.output_count;
-            dst.node_count = src.node_count;
-            dst.layer_count = src.layer_count;
-            dst.bias_node_index = src.bias_node_index;
+    static void cpy(const MLGenome& src, MLGenome& dst)
+    {
+        dst.input_count = src.input_count;
+        dst.output_count = src.output_count;
+        dst.node_count = src.node_count;
+        dst.layer_count = src.layer_count;
+        dst.bias_node_index = src.bias_node_index;
+        check(dst.bias_node_index == 11 && "BIAS MODIFIED!");
 
-            dst.nodes.Reserve(src.nodes.Num());
-            for (auto& it : src.nodes)
-            {
-                dst.nodes.Add(it);
-            }
+        dst.nodes.Reserve(src.nodes.Num());
+        for (auto& it : src.nodes)
+        {
+            dst.nodes.Add(it);
+        }
 
-            dst.connections.Reserve(src.connections.Num());
-            for (auto& it : src.connections)
-            {
-                dst.connections.Add(it);
-            }
-	}
+        dst.connections.Reserve(src.connections.Num());
+        for (auto& it : src.connections)
+        {
+            dst.connections.Add(it);
+        }
+    }
 
     int input_count;
     int output_count;
@@ -67,8 +70,9 @@ class MLTESTPROJECT_API MLGenome
     int bias_node_index;
     TArray<MLNode> nodes;
     TArray<MLConnection> connections;
+    bool is_elite;
 
-	const float connection_mutation_prob = 0.8;
-	const float add_new_connection_prob = 0.03;
-	const float add_new_node_porb = 0.01;
+    const float connection_mutation_prob = 0.8;
+    const float add_new_connection_prob = 0.03;
+    const float add_new_node_porb = 0.01;
 };
