@@ -6,6 +6,7 @@
 #include "MLGenome.h"
 #include "GameFramework/Character.h"
 #include "MLCharacter.generated.h"
+#define SIMULATE_ML 1
 
 UCLASS()
 class MLTESTPROJECT_API AMLCharacter : public ACharacter
@@ -19,6 +20,9 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
   protected:
     // Override functions
     virtual void BeginPlay() override;
+#if !SIMULATE_ML
+    virtual void Tick(float DeltaTime) override;
+#endif
 
   public:
     // Override functions
@@ -37,9 +41,10 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     void handle_single_attachment(USceneComponent* ParentComponent,
                                   USceneComponent* ComponentToAttach,
                                   FName& SocketName);
-    UFUNCTION(BlueprintCallable, Category = "Collision")
-    void handle_collision();
+
+    // Character Functions
     void update(float DeltaTime);
+    void reset_player(const FVector& start_point_location, const FRotator& start_point_rotation);
 
     // Input functions
     void pitch_camera(float AxisValue);
@@ -47,20 +52,26 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     void camera_zoom(float AxisValue);
     void move_forward(float Value);
     void move_right(float Value);
+    void check_point_update(void* ptr);
 
     // ML Functions
+    void tick_sensors();
     void calculate_score();
     void update_pos(float dt, float steering_input);
     void update_rotation(float dt, float acceleration_input);
-    void check_point_update(void* ptr);
-    void tick_sensors();
-    void reset_player(const FVector& start_point_location, const FRotator& start_point_rotation);
-    void normalize(float& val, float min, float max);
+    void update_actor_vectors();
+    void update_network_inputs();
+    void update_char_w_network_output(float DeltaTime);
+    void handle_char_camera();
+    void kill_if_stale(float DeltaTime);
+
+    float normalize(float val, float min, float max);
     inline float fvector_lenght(const FVector& vec)
     {
         return FMath::Sqrt(vec.X * vec.X + vec.Y * vec.Y + vec.Z * vec.Z);
     }
 
+    void* first_check_point = NULL;
     void* prev_check_point = NULL;
     void* prev_prev_check_point = NULL;
 
@@ -93,6 +104,7 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     bool is_elite = false;
 
     TArray<float> sensor_outputs;
+    TArray<float> network_inputs;
     float current_speed;
     // -1 Left, 1 Right
     float steering_direction;
@@ -102,21 +114,31 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     FVector lateral_friction;
     FVector backward_friction;
 
-    const float max_speed = 600.0f;
+    float ML_input_count;
     float max_sensor_input;
-    const int ML_input_count = 9;
+    const int ML_sensor_count = 8;
     const int ML_output_count = 2;
     const int velocity_input_index = 8;
     const float check_point_score_mult = 100;
 
+    UPROPERTY(EditAnywhere)
+    float max_speed = 50.f;
+    UPROPERTY(EditAnywhere)
     float brake_mult = 250;
-    float thrust = 500;
-    float rotation_speed = 30;
-    float lateral_friction_const = 15;
-    float backward_friction_const = 0.1;
+    UPROPERTY(EditAnywhere)
+    float thrust = 40.f;
+    UPROPERTY(EditAnywhere)
+    float rotation_speed = 150;
+    UPROPERTY(EditAnywhere)
+    float lateral_friction_const = 6;
+    UPROPERTY(EditAnywhere)
+    float backward_friction_const = 0.6;
+    UPROPERTY(EditAnywhere)
     float stale_timer = 0;
-    const float destruction_distance = 50.0f;
-    const float stale_limit = 3.5f;
+    UPROPERTY(EditAnywhere)
+    float destruction_distance = 50.0f;
+    UPROPERTY(EditAnywhere)
+    float stale_limit = 3.5f;
     bool has_crashed = false;
 
     // FOR DEBUG
@@ -127,6 +149,12 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     TArray<float> prev_inputs;
     TArray<float> prev_outputs;
     int index;
+
+    // Actor vectors
+    FVector actor_position;
+    FVector actor_forward;
+    FVector actor_right;
+    TArray<float> network_output;
 
   private:
 };

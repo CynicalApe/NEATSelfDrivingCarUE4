@@ -52,7 +52,7 @@ MLGenome::create_empty_genome(int icount, int ocount, bool cross_over)
         nodes.Add(MLNode(node_count++, 1, NULL));
     }
     bias_node_index = node_count++;
-    check(bias_node_index == 11 && "BIAS MODIFIED!");
+    // check(bias_node_index == 14 && "BIAS MODIFIED!");
     nodes.Add(MLNode(bias_node_index, 0, NULL));
 }
 
@@ -101,12 +101,12 @@ MLGenome::new_connection(int from_node,
 
     int connection_number = add_innovation_to_history(innovation_history, from_node, to_node);
     MLConnection connection = MLConnection(from_node, to_node, weight, connection_number);
-    for (auto& out_connection : nodes[from_node].output_connections)
+    for (auto it : nodes[from_node].output_connections)
     {
-        check(!(out_connection.from_node == from_node && out_connection.to_node == to_node));
+        check(!(connections[it].from_node == from_node && connections[it].to_node == to_node));
     }
     connections.Add(connection);
-    nodes[from_node].output_connections.Add(connection);
+    nodes[from_node].output_connections.Add(connections.Num() - 1);
 }
 
 void
@@ -159,9 +159,9 @@ MLGenome::add_innovation_to_history(TArray<MLInnovation>& innovation_history,
 void
 MLGenome::create_nodes_output_connection()
 {
-    for (auto& connection : connections)
+    for (int i = 0; i < connections.Num(); i++)
     {
-        nodes[connection.from_node].add_connection(connection);
+        nodes[connections[i].from_node].add_connection(i);
     }
 }
 
@@ -251,7 +251,7 @@ MLGenome::feed_forward(TArray<float>& sensor_inputs)
         {
             if (node.layer == i)
             {
-                node.feed_forward(nodes);
+                node.feed_forward(nodes, connections);
             }
         }
     }
@@ -279,12 +279,12 @@ MLGenome::add_node_between(int f_node, int t_node, TArray<MLInnovation>& innovat
         layer_count++;
     }
     float weight = 0;
-    for (auto& connection : nodes[f_node].output_connections)
+    for (auto& it : nodes[f_node].output_connections)
     {
-        if (connection.to_node == t_node)
+        if (connections[it].to_node == t_node)
         {
-            connection.enabled = false;
-            weight = connection.weight;
+            connections[it].enabled = false;
+            weight = connections[it].weight;
             break;
         }
     }
@@ -381,7 +381,7 @@ MLGenome::operator=(const MLGenome& src)
     bias_node_index = src.bias_node_index;
     is_elite = src.is_elite;
 
-    check(bias_node_index == 11 && "BIAS MODIFIED!");
+    check(bias_node_index == 14 && "BIAS MODIFIED!");
     for (auto& it : src.nodes)
     {
         nodes.Add(it);

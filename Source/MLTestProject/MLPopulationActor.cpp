@@ -51,10 +51,7 @@ AMLPopulationActor::update(float DeltaTime)
 {
     Super::Tick(DeltaTime);
     current_gen_time += DeltaTime;
-    if (current_geneneration == 2)
-    {
-        int b = 1321;
-    }
+
     int dead_count = 0;
     float total_speed = 0;
     for (auto& player : players)
@@ -67,13 +64,14 @@ AMLPopulationActor::update(float DeltaTime)
         total_speed += player->current_speed;
         player->update(DeltaTime);
     }
+
     float avg_speed = total_speed / (players.Num() - dead_count);
 
     if (avg_speed < avg_speed_min_threshold && current_gen_time > 5.0f)
     {
         for (auto& player : players)
         {
-            player->handle_collision();
+            player->has_crashed = true;
         }
         dead_count = players.Num();
     }
@@ -99,6 +97,7 @@ AMLPopulationActor::spawn_new_batch()
         AMLCharacter* spawned_actor = GetWorld()->SpawnActor<AMLCharacter>(
           AMLCharacter::StaticClass(), default_start_location, default_start_rotation, *param);
         assert(spawned_actor->network.nodes.Num() != 0);
+        spawned_actor->actor_position = default_start_location;
         players.Add(spawned_actor);
     }
     delete param;
@@ -329,6 +328,8 @@ AMLPopulationActor::classify_species()
 void
 AMLPopulationActor::new_generation()
 {
+    if (population_size <= 0)
+        return;
     int elite_count = 0;
     for (auto& player : players)
     {
@@ -371,8 +372,19 @@ AMLPopulationActor::new_generation()
 
     // TODO_OGUZ: DEBUG BLOCK
     {
+        int index = 0;
         for (auto& player : players)
         {
+            /*UE_LOG(LogTemp, Warning, TEXT("Player: %d"), index++);
+            for (auto& connection : player->network.connections)
+            {
+                UE_LOG(LogTemp,
+                       Warning,
+                       TEXT("%d %d %f"),
+                       connection.from_node,
+                       connection.to_node,
+                       connection.weight);
+            }*/
             if (player->network.is_elite)
             {
                 UE_LOG(LogTemp, Warning, TEXT("Elite score: %f"), player->score);
@@ -410,16 +422,15 @@ AMLPopulationActor::new_generation()
                                connection.weight);
                 }*/
             }
-            for (auto& node : player->network.nodes)
+            /*for (auto& connection : player->network.connections)
             {
-                for (auto& connection : node.output_connections)
-                    UE_LOG(LogTemp,
-                           Warning,
-                           TEXT("%d %d %f"),
-                           connection.from_node,
-                           connection.to_node,
-                           connection.weight);
-            }
+                UE_LOG(LogTemp,
+                       Warning,
+                       TEXT("%d %d %f"),
+                       connection.from_node,
+                       connection.to_node,
+                       connection.weight);
+            }*/
         }
 
         UE_LOG(LogTemp,

@@ -11,7 +11,7 @@ MLNode::MLNode()
 {
 }
 
-MLNode::MLNode(const MLNode& src) 
+MLNode::MLNode(const MLNode& src)
 {
     output_connections.Empty();
     output_connections.Reserve(src.output_connections.Num());
@@ -25,7 +25,7 @@ MLNode::MLNode(const MLNode& src)
     }
 }
 
-MLNode::MLNode(int node_number, int layer /*= 0*/, TArray<MLConnection>* ptr)
+MLNode::MLNode(int node_number, int layer /*= 0*/, TArray<int>* ptr)
   : number(node_number)
   , input(0)
   , output(0)
@@ -41,24 +41,24 @@ MLNode::MLNode(int node_number, int layer /*= 0*/, TArray<MLConnection>* ptr)
 MLNode::~MLNode() {}
 
 void
-MLNode::feed_forward(TArray<MLNode>& genome_nodes)
+MLNode::feed_forward(TArray<MLNode>& genome_nodes, const TArray<MLConnection>& connections)
 {
     if (layer == 0)
         output = input;
     else
         output = tanh(input);
 
-    for (auto& it : output_connections)
+    for (auto it : output_connections)
     {
-        if (it.enabled)
-            genome_nodes[it.to_node].input += output * it.weight;
+        if (connections[it].enabled)
+            genome_nodes[connections[it].to_node].input += output * connections[it].weight;
     }
 }
 
 void
-MLNode::add_connection(const MLConnection& connection)
+MLNode::add_connection(int connection_index)
 {
-    output_connections.Add(connection);
+    output_connections.Add(connection_index);
 }
 
 bool
@@ -70,7 +70,7 @@ MLNode::is_connected(const MLNode& node)
     {
         for (auto& connection : node.output_connections)
         {
-            if (number == connection.to_node)
+            if (number == connection)
                 return true;
         }
     }
@@ -78,7 +78,7 @@ MLNode::is_connected(const MLNode& node)
     {
         for (auto& connection : output_connections)
         {
-            if (node.number == connection.to_node)
+            if (node.number == connection)
                 return true;
         }
     }

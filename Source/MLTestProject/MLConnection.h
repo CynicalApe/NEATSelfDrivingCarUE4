@@ -3,7 +3,7 @@
 #pragma once
 #include "MLRandomNumberGenerator.h"
 #include "CoreMinimal.h"
-#define MUTATION_SCALE 0.02f // 1 / 50
+#define MUTATION_SCALE 0.1f // 1 / 10
 class MLNode;
 /**
  *

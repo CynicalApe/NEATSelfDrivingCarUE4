@@ -62,7 +62,7 @@ class MLTESTPROJECT_API AMLPopulationActor : public AActor
 
     // ML info
     MLGenome best_brain;
-    int population_size = 2;
+    int population_size = 10;
     int staleness = 0;
     int staleness_constant = 3;
     int max_mutation_constant = 100;
@@ -72,7 +72,7 @@ class MLTESTPROJECT_API AMLPopulationActor : public AActor
     const float interspecies_crossover_chance = 0.003;
     const float crossover_chance = 0.75;
     const float offspring_mutation_chance = 0.25;
-    const float avg_speed_min_threshold = 100;
+    const float avg_speed_min_threshold = 3;
     const float dt = 1 / 30.0;
     TArray<MLConnection> prev_connections;
 

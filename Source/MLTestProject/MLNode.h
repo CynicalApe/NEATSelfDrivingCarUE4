@@ -15,11 +15,11 @@ class MLTESTPROJECT_API MLNode
   public:
     MLNode();
     MLNode(const MLNode& src);
-    MLNode(int node_number, int layer, TArray<MLConnection>* ptr);
+    MLNode(int node_number, int layer, TArray<int>* ptr);
     ~MLNode();
 
-    void feed_forward(TArray<MLNode>& genome_nodes);
-    void add_connection(const MLConnection& connection);
+    void feed_forward(TArray<MLNode>& genome_nodes, const TArray<MLConnection>& connections);
+    void add_connection(int connection_index);
     bool is_connected(const MLNode& node);
     void operator=(const MLNode& src);
     int number;
@@ -27,5 +27,5 @@ class MLTESTPROJECT_API MLNode
     float output;
     int layer;
 
-    TArray<MLConnection> output_connections;
+    TArray<int> output_connections;
 };

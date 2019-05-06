@@ -75,4 +75,5 @@ class MLTESTPROJECT_API MLGenome
     const float connection_mutation_prob = 0.8;
     const float add_new_connection_prob = 0.03;
     const float add_new_node_porb = 0.01;
+    int qqqq = 0;
 };

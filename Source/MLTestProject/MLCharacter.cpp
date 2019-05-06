@@ -15,14 +15,17 @@
 #include <Runtime/Engine/Public/DrawDebugHelpers.h>
 #include <Runtime/Engine/Public/LevelUtils.h>
 #include <Runtime/Engine/Public/EngineUtils.h >
-#define SIMULATE_ML 1
 
 // Sets default values
 AMLCharacter::AMLCharacter()
 {
     // Set this character to call Tick() every frame.  You can turn this off to improve performance
     // if you don't need it.
+#if SIMULATE_ML
     PrimaryActorTick.bCanEverTick = false;
+#else
+    PrimaryActorTick.bCanEverTick = true;
+#endif
     RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
     StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesoh"));
     attached_camera = CreateDefaultSubobject<UCameraComponent>(TEXT("GameCamera"));
@@ -33,6 +36,7 @@ AMLCharacter::AMLCharacter()
     BackRightSensor = CreateDefaultSubobject<USensorComponent>(TEXT("RightSensorComponent"));
 
     // Network
+    ML_input_count = ML_sensor_count + 4; // sensors + two 2D vectors
     network.create_empty_genome(ML_input_count, ML_output_count, false);
 
     fitness = 0;
@@ -84,11 +88,14 @@ AMLCharacter::AMLCharacter()
     GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     StaticMesh->SetupAttachment(RootComponent);
 
-    sensor_outputs.SetNum(ML_input_count);
+    network_inputs.SetNum(ML_input_count);
+    sensor_outputs.SetNum(ML_sensor_count);
+    network_inputs.SetNum(ML_input_count);
     max_sensor_input = FrontRightSensor->RayTravelDistance;
     velocity_vector = FVector(0.f, 0.f, 0.f);
     acceleration_vector = FVector(0.f, 0.f, 0.f);
     index = 0;
+    update_actor_vectors();
 }
 
 void
@@ -118,85 +125,35 @@ AMLCharacter::BeginPlay()
     update_editor_properties();
 }
 
+#if !SIMULATE_ML
+void
+AMLCharacter::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+    update_actor_vectors();
+    update_char_w_network_output(DeltaTime);
+}
+#endif
 void
 AMLCharacter::update(float DeltaTime)
 {
-    Super::Tick(DeltaTime);
-    if (has_crashed)
-    {
-        return;
-    }
-    tick_sensors();
-    normalize(current_speed, 0, max_speed);
-    if (current_speed == 0)
-    {
-        stale_timer += DeltaTime;
-        if (stale_timer > stale_limit)
-        {
-            has_crashed = true;
-        }
-    }
-
-    // TODO_ALPTUG: send vectors
-    sensor_outputs[velocity_input_index] = current_speed;
-    for (int i = 0; i < ML_input_count - 1; i++)
-    {
-        if (sensor_outputs[i] <= destruction_distance)
-        {
-            has_crashed = true;
-        }
-        // normalize(sensor_outputs[i], 0, max_sensor_input);
-    }
-    // if (network.is_elite && !has_crashed)
-    //{
-    //    for (int i = 0; i < sensor_outputs.Num(); i++)
-    //    {
-    //        if (index == 10)
-    //        {
-    //            int a = 1;
-    //        }
-    //        sensor_outputs[i] = prev_inputs[index++];
-    //    }
-    //}
-
-    TArray<float> output = network.feed_forward(sensor_outputs);
-
-    /*for (auto& i : sensor_outputs)
-    {
-        inputs.Add(i);
-    }
-    if (network.is_elite)
-    {
-        pushed_frame_count++;
-    }*/
-    // outputs.Add(output[0]);
-    // outputs.Add(output[1]);
-
-    if (!CameraInput.IsZero())
-    {
-        FRotator NewRotation = camera_spring_arm->GetTargetRotation();
-        NewRotation.Yaw += CameraInput.X;
-        NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch + CameraInput.Y, -88.0f, 30.0f);
-        camera_spring_arm->SetWorldRotation(NewRotation);
-    }
-
 #if SIMULATE_ML
     {
-        update_pos(DeltaTime, output[0]);
-        update_rotation(DeltaTime, output[1]);
-    }
-
-#else
-    {
-        update_pos(DeltaTime, MovementInput.X);
-        update_rotation(DeltaTime, MovementInput.Y);
+        if (has_crashed)
+        {
+            return;
+        }
+        Super::Tick(DeltaTime);
+        update_actor_vectors();
+        tick_sensors();
+        update_network_inputs();
+        update_char_w_network_output(DeltaTime);
+        handle_char_camera();
+        kill_if_stale(DeltaTime);
+        alive_time += DeltaTime;
     }
 #endif
-
-    alive_time += DeltaTime;
 }
-
-// Called every frame
 
 // Called to bind functionality to input
 void
@@ -246,27 +203,36 @@ AMLCharacter::calculate_score()
 void
 AMLCharacter::update_pos(float dt, float acceleration_input)
 {
-    FVector actor_right = GetActorRightVector();
-    FVector actor_forward = GetActorForwardVector();
+
     lateral_velocity = actor_right * FVector::DotProduct(velocity_vector, actor_right);
     lateral_friction = -lateral_velocity * lateral_friction_const;
     backward_friction = -velocity_vector * backward_friction_const;
+
+    velocity_vector += (backward_friction + lateral_friction) * dt;
+
     acceleration_vector = actor_forward * acceleration_input * thrust;
-    velocity_vector += (acceleration_vector * dt) + ((backward_friction + lateral_friction) * dt);
     current_speed = velocity_vector.Size();
-    current_speed = FMath::Clamp(current_speed, 0.0f, max_speed);
     if (FVector::DotProduct(velocity_vector, actor_forward) < 0)
     {
-        velocity_vector = FVector::ZeroVector;
-        current_speed = 0;
+        current_speed = -current_speed;
     }
-    SetActorLocation(GetActorLocation() + velocity_vector * dt);
+
+    if (-max_speed < current_speed && current_speed < max_speed)
+    {
+        velocity_vector += acceleration_vector * dt;
+    }
+    SetActorLocation(actor_position + velocity_vector);
 }
 
 void
 AMLCharacter::update_rotation(float dt, float steering_input)
 {
+    if (steering_input != 0)
+    {
+        int a = 10;
+    }
     float angle = steering_input * rotation_speed * dt * (current_speed / max_speed);
+    // UE_LOG(LogTemp, Warning, TEXT("Current Angle: %f"), angle);
     SetActorRotation(GetActorRotation().Add(0, angle, 0));
 }
 
@@ -342,22 +308,20 @@ AMLCharacter::handle_single_attachment(USceneComponent* ParentComponent,
 }
 
 void
-AMLCharacter::handle_collision()
+AMLCharacter::tick_sensors()
 {
-    has_crashed = true;
+    FrontLeftSensor->RayCast(actor_position, actor_forward, actor_right, sensor_outputs, 0);
+    FrontRightSensor->RayCast(actor_position, actor_forward, actor_right, sensor_outputs, 2);
+    BackRightSensor->RayCast(actor_position, actor_forward, actor_right, sensor_outputs, 4);
+    BackLeftSensor->RayCast(actor_position, actor_forward, actor_right, sensor_outputs, 6);
 }
 
 void
-AMLCharacter::tick_sensors()
+AMLCharacter::update_actor_vectors()
 {
-    FrontLeftSensor->RayCast(
-      GetActorLocation(), GetActorForwardVector(), GetActorRightVector(), sensor_outputs, 0);
-    FrontRightSensor->RayCast(
-      GetActorLocation(), GetActorForwardVector(), GetActorRightVector(), sensor_outputs, 2);
-    BackRightSensor->RayCast(
-      GetActorLocation(), GetActorForwardVector(), GetActorRightVector(), sensor_outputs, 4);
-    BackLeftSensor->RayCast(
-      GetActorLocation(), GetActorForwardVector(), GetActorRightVector(), sensor_outputs, 6);
+    actor_position = GetActorLocation();
+    actor_forward = GetActorForwardVector();
+    actor_right = GetActorRightVector();
 }
 
 void
@@ -365,13 +329,12 @@ AMLCharacter::check_point_update(void* ptr)
 {
     if (ptr == prev_check_point || ptr == prev_prev_check_point)
     {
-        handle_collision();
+        has_crashed = true;
     }
     checkpoint_count++;
     check_point_score +=
       check_point_score_mult * checkpoint_count / (alive_time - last_check_point_time);
     last_check_point_time = alive_time;
-
     prev_prev_check_point = prev_check_point;
     prev_check_point = ptr;
 }
@@ -418,7 +381,6 @@ AMLCharacter::reset_player(const FVector& start_point_location,
     lateral_velocity = FVector::ZeroVector;
     lateral_friction = FVector::ZeroVector;
     backward_friction = FVector::ZeroVector;
-    // TODO_OGUZ RESET LOCATION HERE TO RESPAWN
     SetActorLocationAndRotation(start_point_location, start_point_rotation);
     // DEBUG
     index = 0;
@@ -426,8 +388,68 @@ AMLCharacter::reset_player(const FVector& start_point_location,
     outputs.Empty();
 }
 
-void
-AMLCharacter::normalize(float& val, float min, float max)
+float
+AMLCharacter::normalize(float val, float min, float max)
 {
-    val = (2 * (val - min) / (max - min)) - 1;
+    return (2 * (val - min) / (max - min)) - 1;
+}
+
+void
+AMLCharacter::update_network_inputs()
+{
+    for (int i = 0; i < ML_sensor_count; i++)
+    {
+        if (sensor_outputs[i] <= destruction_distance)
+        {
+            has_crashed = true;
+        }
+        network_inputs[i] = (normalize(sensor_outputs[i], 0, max_sensor_input));
+    }
+    network_inputs[ML_sensor_count] = normalize(velocity_vector[0], -max_speed, max_speed);
+    network_inputs[ML_sensor_count + 1] = normalize(velocity_vector[1], -max_speed, max_speed);
+    network_inputs[ML_sensor_count + 2] = actor_forward.X;
+    network_inputs[ML_sensor_count + 3] = actor_forward.Y;
+}
+
+void
+AMLCharacter::update_char_w_network_output(float DeltaTime)
+{
+    network_output = network.feed_forward(network_inputs);
+#if SIMULATE_ML
+    {
+        update_pos(DeltaTime, network_output[0]);
+        update_rotation(DeltaTime, network_output[1]);
+    }
+#else
+    {
+        update_pos(DeltaTime, MovementInput.X);
+        update_rotation(DeltaTime, MovementInput.Y);
+    }
+#endif
+}
+
+void
+AMLCharacter::handle_char_camera()
+{
+    if (!CameraInput.IsZero())
+    {
+        FRotator NewRotation = camera_spring_arm->GetTargetRotation();
+        NewRotation.Yaw += CameraInput.X;
+        NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch + CameraInput.Y, -88.0f, 30.0f);
+        camera_spring_arm->SetWorldRotation(NewRotation);
+    }
+}
+
+void
+AMLCharacter::kill_if_stale(float DeltaTime)
+{
+    if (current_speed == 0)
+    {
+        stale_timer += DeltaTime;
+        if (stale_timer > stale_limit)
+        {
+            has_crashed = true;
+            stale_timer = 0;
+        }
+    }
 }
