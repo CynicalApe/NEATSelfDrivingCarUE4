@@ -53,6 +53,8 @@ class MLTESTPROJECT_API AMLPopulationActor : public AActor
     void classify_species();
     void new_generation();
     void update_mutation_constant();
+    void kill_based_on_avg_speed(float total_speed, int dead_count);
+
     int select_specie();
     // ML Storage
     TArray<MLSpecie> species;
@@ -62,7 +64,7 @@ class MLTESTPROJECT_API AMLPopulationActor : public AActor
 
     // ML info
     MLGenome best_brain;
-    int population_size = 10;
+    int population_size = 170;
     int staleness = 0;
     int staleness_constant = 3;
     int max_mutation_constant = 100;
@@ -79,7 +81,7 @@ class MLTESTPROJECT_API AMLPopulationActor : public AActor
     // Runtime info
     TArray<MLGenome> generation_best_brains;
     int current_geneneration;
-    int cur_gen_best_score;
+    float cur_gen_best_score;
     float overall_best_score;
     int car_no_to_simulate;
     int curr_max_check_point;
@@ -88,6 +90,7 @@ class MLTESTPROJECT_API AMLPopulationActor : public AActor
     // Debug info
     GENINFO generation_info{ 0 };
     float time_interval = 0;
+    float prev_best_score = 0;
 
     // Editor
     TArray<AActor*> start_point_arr;

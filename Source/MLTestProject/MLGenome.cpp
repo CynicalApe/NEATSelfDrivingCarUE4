@@ -175,7 +175,7 @@ MLGenome::add_random_connection(TArray<MLInnovation>& innovation_history)
     StaticRandomNumberGenerator.seed();
     int index_1 = (int)StaticRandomNumberGenerator.GetUniform(0, nodes.Num());
     int index_2 = (int)StaticRandomNumberGenerator.GetUniform(0, nodes.Num());
-    while (!can_make_connection(nodes[index_1], nodes[index_2]))
+    while (!can_make_connection(nodes[index_1], nodes[index_2], connections))
     {
         StaticRandomNumberGenerator.seed();
         index_2 = (int)StaticRandomNumberGenerator.GetUniform(0, nodes.Num());
@@ -211,9 +211,9 @@ MLGenome::is_fully_connected()
 }
 
 bool
-MLGenome::can_make_connection(MLNode& node1, MLNode& node2)
+MLGenome::can_make_connection(MLNode& node1, MLNode& node2, const TArray<MLConnection>& connections)
 {
-    return (node1.layer != node2.layer) && !node1.is_connected(node2);
+    return (node1.layer != node2.layer) && !node1.is_connected(node2, connections);
 }
 
 bool
@@ -235,13 +235,14 @@ MLGenome::feed_forward(TArray<float>& sensor_inputs)
 {
     TArray<float> result;
     result.Reserve(output_count);
-    for (int i = 0; i < sensor_inputs.Num(); i++)
+    for (int i = 0; i < nodes.Num(); i++)
+    {
+        nodes[i].input = 0;
+        nodes[i].output = 0;
+    }
+    for (int i = 0; i < input_count; i++)
     {
         nodes[i].input = sensor_inputs[i];
-    }
-    for (auto& node : nodes)
-    {
-        node.output = 0;
     }
     nodes[bias_node_index].output = 1.0f;
 
@@ -358,11 +359,6 @@ MLGenome::remove_all_connections()
 void
 MLGenome::reset_genome()
 {
-    for (auto& node : nodes)
-    {
-        node.input = 0.0f;
-        node.output = 0.0f;
-    }
     is_elite = false;
 }
 

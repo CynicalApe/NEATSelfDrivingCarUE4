@@ -32,7 +32,7 @@ class MLTESTPROJECT_API MLGenome
     void create_nodes_output_connection();
     void add_random_connection(TArray<MLInnovation>& innovation_history);
     bool is_fully_connected();
-    bool can_make_connection(MLNode& node1, MLNode& node2);
+    bool can_make_connection(MLNode& node1, MLNode& node2, const TArray<MLConnection>& connections);
     bool has_matching_innovation(int innovation_number, MLConnection& out_connection);
     TArray<float> feed_forward(TArray<float>& sensor_inputs);
     void add_node_between(int f_node, int t_node, TArray<MLInnovation>& innovation_history);
@@ -75,5 +75,4 @@ class MLTESTPROJECT_API MLGenome
     const float connection_mutation_prob = 0.8;
     const float add_new_connection_prob = 0.03;
     const float add_new_node_porb = 0.01;
-    int qqqq = 0;
 };

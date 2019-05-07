@@ -1,5 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "MLPopulationActor.h"
+#include <Runtime/CoreUObject/Public/UObject/ConstructorHelpers.h>
+#include <Runtime/Engine/Classes/Engine/StaticMesh.h>
+#include <Runtime/Core/Public/Async/ParallelFor.h>
 #include <cassert>
 
 // Sets default values
@@ -53,29 +56,19 @@ AMLPopulationActor::update(float DeltaTime)
     current_gen_time += DeltaTime;
 
     int dead_count = 0;
-    float total_speed = 0;
+    ParallelFor(players.Num(), [&](int32 Idx) { players[Idx]->update(DeltaTime); });
+
     for (auto& player : players)
     {
         if (player->has_crashed)
-        {
             dead_count++;
-            continue;
-        }
-        total_speed += player->current_speed;
-        player->update(DeltaTime);
-    }
-
-    float avg_speed = total_speed / (players.Num() - dead_count);
-
-    if (avg_speed < avg_speed_min_threshold && current_gen_time > 5.0f)
-    {
-        for (auto& player : players)
+        player->SetActorLocationAndRotation(player->actor_new_position, player->actor_new_rotation);
+        if (player->has_crashed && !player->dead_set)
         {
-            player->has_crashed = true;
+            player->set_car_color(player->car_color_simple_red);
+            player->dead_set = true;
         }
-        dead_count = players.Num();
     }
-
     if (dead_count == players.Num())
     {
         new_generation();
@@ -185,11 +178,11 @@ void
 AMLPopulationActor::set_best()
 {
     AMLCharacter* best_player = players[0];
-    float score = best_player->score;
+    cur_gen_best_score = best_player->score;
 
-    if (score > overall_best_score)
+    if (cur_gen_best_score > overall_best_score)
     {
-        overall_best_score = score;
+        overall_best_score = cur_gen_best_score;
         best_brain = best_player->network;
         generation_best_brains.Add(best_brain);
         staleness = 0;
@@ -266,6 +259,7 @@ void
 AMLPopulationActor::remove_stale_species()
 {
     species.RemoveAll([](const MLSpecie& sp) { return sp.staleness > 15; });
+    check(species.Num() != 0);
 }
 
 void
@@ -285,6 +279,7 @@ AMLPopulationActor::remove_useless_species()
     species.RemoveAll([avg_fitness_sum, player_count](MLSpecie& sp) {
         return (sp.avg_fitness / avg_fitness_sum * player_count) < 1;
     });
+    check(species.Num() != 0);
 }
 
 void
@@ -330,6 +325,7 @@ AMLPopulationActor::new_generation()
 {
     if (population_size <= 0)
         return;
+    // DEBUG
     int elite_count = 0;
     for (auto& player : players)
     {
@@ -341,6 +337,7 @@ AMLPopulationActor::new_generation()
     check(elite_count <= 1);
 
     AMLCharacter* previous_gen_elite = players[0];
+
     children_genomes.Empty();
     children_genomes.Reserve(players.Num());
 
@@ -361,6 +358,12 @@ AMLPopulationActor::new_generation()
     update_mutation_constant();
     set_best();
 
+    if (current_geneneration > 1)
+    {
+        check(previous_gen_elite->network.is_elite);
+        check(previous_gen_elite->score == prev_best_score);
+    }
+
     curr_max_check_point = 0;
     for (auto& player : players)
     {
@@ -369,6 +372,7 @@ AMLPopulationActor::new_generation()
             curr_max_check_point = player->checkpoint_count;
         }
     }
+    UE_LOG(LogTemp, Warning, TEXT("#############################################"));
 
     // TODO_OGUZ: DEBUG BLOCK
     {
@@ -439,7 +443,8 @@ AMLPopulationActor::new_generation()
                current_geneneration,
                innovation_history.Num(),
                species.Num());
-        UE_LOG(LogTemp, Warning, TEXT("Max Score: %f"), players[0]->score);
+        UE_LOG(LogTemp, Warning, TEXT("Max Score: %f"), overall_best_score);
+        UE_LOG(LogTemp, Warning, TEXT("Current Gen Max Score: %f"), cur_gen_best_score);
         UE_LOG(LogTemp, Warning, TEXT("Max checkpoint: %d"), curr_max_check_point);
         UE_LOG(LogTemp,
                Warning,
@@ -467,6 +472,7 @@ AMLPopulationActor::new_generation()
     }
 
     children_genomes.Add(current_best->network);
+    prev_best_score = current_best->score;
     // DEBUG
     // TArray<float> elite_prev_inputs = current_best->inputs;
     // TArray<float> elite_prev_outputs = current_best->outputs;
@@ -527,7 +533,7 @@ AMLPopulationActor::new_generation()
         check(it->network.connections.Num() >= 20)
     }
     players[0]->network.is_elite = true;
-
+    players[0]->set_car_color(players[0]->car_color_elite);
     cur_gen_best_score = 0;
     current_gen_time = 0;
     current_geneneration++;
@@ -555,6 +561,21 @@ AMLPopulationActor::update_mutation_constant()
     else
     {
         mutation_constant = 1;
+    }
+}
+
+void
+AMLPopulationActor::kill_based_on_avg_speed(float total_speed, int dead_count)
+{
+    float avg_speed = total_speed / (players.Num() - dead_count);
+
+    if (avg_speed < avg_speed_min_threshold && current_gen_time > 5.0f)
+    {
+        for (auto& player : players)
+        {
+            player->has_crashed = true;
+        }
+        dead_count = players.Num();
     }
 }
 

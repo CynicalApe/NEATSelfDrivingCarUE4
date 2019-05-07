@@ -27,11 +27,38 @@ class MLTESTPROJECT_API USensorComponent : public USceneComponent
     virtual void TickComponent(float DeltaTime,
                                ELevelTick TickType,
                                FActorComponentTickFunction* ThisTickFunction) override;
-    void RayCast(const FVector& SocketLocation,
-                 const FVector& SocketForward,
-                 const FVector& SocketRight,
-                 TArray<float>& sensor_outputs,
-                 int starting_index);
+    inline void RayCast(const FVector& SocketForward,
+                        const FVector& SocketRight,
+                        const FVector& SocketUp,
+                        TArray<float>& sensor_outputs,
+                        int starting_index)
+    {
+        FVector Start = GetComponentLocation();
+        RayDirections[0] = SocketForward;
+        RayDirections[1] = -1 * RayDirections[0];
+        RayDirections[2] = SocketRight;
+        RayDirections[3] = -1 * RayDirections[2];
+        RayDirections[4] = SocketUp;
+        RayDirections[5] = -1 * RayDirections[4];
+
+        for (int i = 0; i < DirectionCount; i++)
+        {
+            if (CastDirections[i])
+            {
+                RealRayStart = RayDirections[i] * RayDistanceFromCenter + Start;
+                RayEnd = (RayDirections[i] * RayTravelDistance) + RealRayStart;
+                if (!world->LineTraceSingleByChannel(
+                      RayHitResults[i], RealRayStart, RayEnd, ECC_WorldDynamic))
+                {
+                    sensor_outputs[starting_index++] = RayTravelDistance;
+                }
+                else
+                {
+                    sensor_outputs[starting_index++] = RayHitResults[i].Distance;
+                }
+            }
+        }
+    }
 
     void SetRayCastDirections(bool CastForward = false,
                               bool CastBehind = false,
@@ -41,7 +68,7 @@ class MLTESTPROJECT_API USensorComponent : public USceneComponent
                               bool CastDown = false);
 
     float RayDistanceFromCenter = 20.0f;
-    float RayTravelDistance = 3000.0f;
+    float RayTravelDistance = 1000.0f;
     float RayWidth = 15.0f;
 
     int DirectionCount = 6;
@@ -56,12 +83,11 @@ class MLTESTPROJECT_API USensorComponent : public USceneComponent
     bool CastLeft = false;
     bool CastUp = false;
     bool CastDown = false;
-
+    FVector RealRayStart;
+    FVector RayEnd;
+    class UWorld* world;
     class USceneComponent* RootComponent;
     class UStaticMeshComponent* StaticMesh;
 
   private:
-    bool CastRayInDirection(const FVector& RayDirection,
-                            const FVector& RayStart,
-                            FHitResult& HitResult);
 };

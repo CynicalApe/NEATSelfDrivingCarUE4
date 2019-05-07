@@ -11,7 +11,7 @@ USensorComponent::USensorComponent()
 {
     // Set this component to be initialized when the game starts, and to be ticked every frame.  You
     // can turn these features off to improve performance if you don't need them.
-    PrimaryComponentTick.bCanEverTick = true;
+    PrimaryComponentTick.bCanEverTick = false;
     RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
     StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesh"));
     static ConstructorHelpers::FObjectFinder<UStaticMesh> MeshAsset(
@@ -30,6 +30,7 @@ USensorComponent::USensorComponent()
 
     RootComponent->SetupAttachment(this);
     StaticMesh->SetupAttachment(RootComponent);
+    world = GetWorld();
 }
 
 // Called when the game starts
@@ -84,40 +85,6 @@ USensorComponent::TickComponent(float DeltaTime,
 }
 
 void
-USensorComponent::RayCast(const FVector& SocketLocation,
-                          const FVector& SocketForward,
-                          const FVector& SocketRight,
-                          TArray<float>& sensor_outputs,
-                          int starting_index)
-{
-    FVector Start = GetComponentLocation();
-    FVector Up = FVector::CrossProduct(SocketForward, SocketRight);
-    RayDirections[0] = SocketForward;
-    RayDirections[1] = -1 * RayDirections[0];
-    RayDirections[2] = SocketRight;
-    RayDirections[3] = -1 * RayDirections[2];
-    RayDirections[4] = Up;
-    RayDirections[5] = -1 * RayDirections[4];
-
-    for (int i = 0; i < DirectionCount; i++)
-    {
-        if (CastDirections[i])
-        {
-            HitRays[i] = CastRayInDirection(RayDirections[i], Start, RayHitResults[i]);
-            if (!HitRays[i])
-            {
-                sensor_outputs[starting_index++] = RayTravelDistance;
-            }
-            else
-            {
-                sensor_outputs[starting_index++] = RayHitResults[i].Distance;
-            }
-            RayHitResults[i].Reset();
-        }
-    }
-}
-
-void
 USensorComponent::SetRayCastDirections(bool CastForward,
                                        bool CastBehind,
                                        bool CastRight,
@@ -131,25 +98,4 @@ USensorComponent::SetRayCastDirections(bool CastForward,
     this->CastLeft = CastLeft;
     this->CastUp = CastUp;
     this->CastDown = CastDown;
-}
-
-bool
-USensorComponent::CastRayInDirection(const FVector& RayDirection,
-                                     const FVector& RayStart,
-                                     FHitResult& HitResult)
-{
-    bool RayHit = false;
-    FVector RealRayStart = RayDirection * RayDistanceFromCenter + RayStart;
-    FVector RayEnd = (RayDirection * RayTravelDistance) + RealRayStart;
-    FColor DebugLineColor = FColor::Red;
-    if (GetWorld()->LineTraceSingleByChannel(HitResult, RealRayStart, RayEnd, ECC_WorldDynamic))
-    {
-        DebugLineColor = FColor::Green;
-    }
-    DrawDebugLine(GetWorld(), RealRayStart, RayEnd, DebugLineColor, false, -1.0f, '\000', RayWidth);
-    if (!HitResult.ImpactPoint.IsZero())
-    {
-        RayHit = true;
-    }
-    return RayHit;
 }

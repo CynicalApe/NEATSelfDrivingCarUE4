@@ -5,22 +5,16 @@
 
 MLSpecie::MLSpecie()
 {
-    excess_disjoint_constant = 1.f;
-    weight_constant = 0.4f;
-    similarity_constant = 3;
     staleness = 0;
     best_fitness = 0;
     avg_fitness = 0;
-	best_score=0;
-	avg_score = 0;
+    best_score = 0;
+    avg_score = 0;
     gens_without_improvement = 0;
 }
 
 MLSpecie::MLSpecie(AMLCharacter* player)
 {
-    excess_disjoint_constant = 1.f;
-    weight_constant = 0.4f;
-    similarity_constant = 3;
     staleness = 0;
     best_fitness = 0;
     avg_fitness = 0;
@@ -31,8 +25,8 @@ MLSpecie::MLSpecie(AMLCharacter* player)
     players.Add(player);
     best_fitness = player->fitness;
     avg_fitness = best_fitness;
-	best_score = player->score;
-	avg_score=best_score;
+    best_score = player->score;
+    avg_score = best_score;
     representetive = player->network;
 }
 
@@ -61,7 +55,7 @@ MLSpecie::get_excess_disjoint_and_w_difference(const MLGenome& genome1,
             if (it1.innovation_number == it2.innovation_number)
             {
                 mutual_count++;
-                w_difference += FGenericPlatformMath::Abs(it1.weight - it2.weight);
+                w_difference += FMath::Abs(it1.weight - it2.weight);
                 break;
             }
         }
@@ -80,18 +74,18 @@ MLSpecie::get_excess_disjoint_and_w_difference(const MLGenome& genome1,
 bool
 MLSpecie::is_same_specie(AMLCharacter* player)
 {
-	MLGenome genome = player->network;
-	//MLGenome::cpy(player->network, genome);
-    
+    MLGenome genome = player->network;
+    // MLGenome::cpy(player->network, genome);
+
     int N;
 
-    if (genome.connections.Num() < 20 && representetive.connections.Num() < 20)
+    if (genome.nodes.Num() < 20 && representetive.nodes.Num() < 20)
     {
         N = 1;
     }
     else
     {
-        N = FMath::Max(genome.connections.Num(), representetive.connections.Num());
+        N = FMath::Max(genome.nodes.Num(), representetive.nodes.Num());
     }
     float avg_w_difference = 0;
     int excess_disjoint_count = 0;
@@ -117,11 +111,11 @@ void
 MLSpecie::update_avg_fitness()
 {
     float total_fitness = 0;
-	float total_score = 0;
+    float total_score = 0;
     for (auto& it : players)
     {
         total_fitness += it->fitness;
-		total_score += it->score;
+        total_score += it->score;
     }
     avg_fitness = total_fitness / players.Num();
     avg_score = total_score / players.Num();
@@ -146,9 +140,9 @@ MLSpecie::sort()
 
     Algo::Sort(players, player_fitness_predicate());
 
-	if (players[0]->score > best_score)
+    if (players[0]->score > best_score)
     {
-            best_score = players[0]->score;
+        best_score = players[0]->score;
     }
 
     if (players[0]->fitness > best_fitness)
@@ -201,5 +195,5 @@ MLSpecie::remove_bottom_half()
 void
 MLSpecie::clear_players()
 {
-	players.Empty();
+    players.Empty();
 }

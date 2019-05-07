@@ -51,6 +51,7 @@ AMLCharacter::AMLCharacter()
     {
         UE_LOG(LogTemp, Warning, TEXT("COULD NOT FIND THE ASSET FOR THE ML CAR!"));
     }
+
     FrontRightSensorSocket = FName("FrontRightSensor");
     FrontLeftSensorSocket = FName("FrontLeftSensor");
     BackLeftSensorSocket = FName("BackLeftSensor");
@@ -96,6 +97,13 @@ AMLCharacter::AMLCharacter()
     acceleration_vector = FVector(0.f, 0.f, 0.f);
     index = 0;
     update_actor_vectors();
+    car_color_simple_red = FVector(0.318, 0.0f, 0.0f);
+    car_color_orange = FVector(1.0f, 0.275f, 0.0f);
+    car_color_elite = FVector(0.615f, 0.0f, 0.963f);
+    UMaterialInterface* Material1 = StaticMesh->GetMaterial(0);
+    material1 = StaticMesh->CreateDynamicMaterialInstance(1, Material1);
+    /*UMaterialInterface* Material2 = StaticMesh->GetMaterial(1);
+    material2 = StaticMesh->CreateDynamicMaterialInstance(1, Material2);*/
 }
 
 void
@@ -139,18 +147,20 @@ AMLCharacter::update(float DeltaTime)
 {
 #if SIMULATE_ML
     {
-        if (has_crashed)
-        {
-            return;
-        }
         Super::Tick(DeltaTime);
-        update_actor_vectors();
-        tick_sensors();
-        update_network_inputs();
-        update_char_w_network_output(DeltaTime);
-        handle_char_camera();
-        kill_if_stale(DeltaTime);
-        alive_time += DeltaTime;
+
+        if (!has_crashed)
+        {
+            update_actor_vectors();
+            tick_sensors();
+            update_network_inputs();
+            update_char_w_network_output(DeltaTime);
+            handle_char_camera();
+            kill_if_stale(DeltaTime);
+            kill_if_checkpoint();
+            distance_traveled += velocity_vector.Size() * DeltaTime;
+            alive_time += DeltaTime;
+        }
     }
 #endif
 }
@@ -196,7 +206,8 @@ void
 AMLCharacter::calculate_score()
 {
     // TODO_OGUZ: Tune this
-    score = check_point_score + alive_time;
+    score = check_point_score + distance_traveled;
+    // score = check_point_score;
     fitness = score;
 }
 
@@ -212,16 +223,20 @@ AMLCharacter::update_pos(float dt, float acceleration_input)
 
     acceleration_vector = actor_forward * acceleration_input * thrust;
     current_speed = velocity_vector.Size();
+    // if (FVector::DotProduct(velocity_vector, actor_forward) < 0)
+    //{
+    //    current_speed = -current_speed;
+    //}
     if (FVector::DotProduct(velocity_vector, actor_forward) < 0)
     {
-        current_speed = -current_speed;
+        velocity_vector = FVector::ZeroVector;
     }
 
-    if (-max_speed < current_speed && current_speed < max_speed)
+    if (current_speed < max_speed)
     {
         velocity_vector += acceleration_vector * dt;
     }
-    SetActorLocation(actor_position + velocity_vector);
+    actor_new_position = actor_position + velocity_vector;
 }
 
 void
@@ -233,7 +248,7 @@ AMLCharacter::update_rotation(float dt, float steering_input)
     }
     float angle = steering_input * rotation_speed * dt * (current_speed / max_speed);
     // UE_LOG(LogTemp, Warning, TEXT("Current Angle: %f"), angle);
-    SetActorRotation(GetActorRotation().Add(0, angle, 0));
+    actor_new_rotation = GetActorRotation().Add(0, angle, 0);
 }
 
 void
@@ -310,10 +325,10 @@ AMLCharacter::handle_single_attachment(USceneComponent* ParentComponent,
 void
 AMLCharacter::tick_sensors()
 {
-    FrontLeftSensor->RayCast(actor_position, actor_forward, actor_right, sensor_outputs, 0);
-    FrontRightSensor->RayCast(actor_position, actor_forward, actor_right, sensor_outputs, 2);
-    BackRightSensor->RayCast(actor_position, actor_forward, actor_right, sensor_outputs, 4);
-    BackLeftSensor->RayCast(actor_position, actor_forward, actor_right, sensor_outputs, 6);
+    FrontLeftSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 0);
+    FrontRightSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 2);
+    BackRightSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 4);
+    BackLeftSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 6);
 }
 
 void
@@ -322,6 +337,7 @@ AMLCharacter::update_actor_vectors()
     actor_position = GetActorLocation();
     actor_forward = GetActorForwardVector();
     actor_right = GetActorRightVector();
+    actor_up = GetActorUpVector();
 }
 
 void
@@ -330,10 +346,13 @@ AMLCharacter::check_point_update(void* ptr)
     if (ptr == prev_check_point || ptr == prev_prev_check_point)
     {
         has_crashed = true;
+        return;
     }
     checkpoint_count++;
-    check_point_score +=
-      check_point_score_mult * checkpoint_count / (alive_time - last_check_point_time);
+
+    check_point_score += check_point_score_mult * checkpoint_count * checkpoint_count /
+                         (alive_time - last_check_point_time);
+    // check_point_score += check_point_score_mult * checkpoint_count;
     last_check_point_time = alive_time;
     prev_prev_check_point = prev_check_point;
     prev_check_point = ptr;
@@ -365,7 +384,6 @@ void
 AMLCharacter::reset_player(const FVector& start_point_location,
                            const FRotator& start_point_rotation)
 {
-
     fitness = 0;
     checkpoint_count = 0;
     score = 0;
@@ -386,6 +404,9 @@ AMLCharacter::reset_player(const FVector& start_point_location,
     index = 0;
     inputs.Empty();
     outputs.Empty();
+    distance_traveled = 0;
+    dead_set = false;
+    set_car_color(car_color_orange);
 }
 
 float
@@ -452,4 +473,21 @@ AMLCharacter::kill_if_stale(float DeltaTime)
             stale_timer = 0;
         }
     }
+}
+
+void
+AMLCharacter::kill_if_checkpoint()
+{
+    if (alive_time - last_check_point_time > checkpoint_deadline)
+    {
+        has_crashed = true;
+    }
+}
+
+void
+AMLCharacter::set_car_color(const FVector& color)
+{
+    material1->SetVectorParameterValue(FName(TEXT("CarColor")), color);
+    StaticMesh->SetMaterial(0, material1);
+    StaticMesh->SetMaterial(1, material1);
 }

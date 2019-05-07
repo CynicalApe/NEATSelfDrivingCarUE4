@@ -29,16 +29,16 @@ class MLTESTPROJECT_API MLSpecie
     void remove_bottom_half();
     void clear_players();
 
-    float excess_disjoint_constant;
-    float weight_constant;
-    float similarity_constant;
+    const float excess_disjoint_constant = 1;
+    const float weight_constant = 0.4;
+    const float similarity_constant = 3;
     int staleness;
     int gens_without_improvement;
 
     TArray<AMLCharacter*> players;
     float best_fitness;
     float avg_fitness;
-	float best_score;
-	float avg_score;
+    float best_score;
+    float avg_score;
     MLGenome representetive;
 };

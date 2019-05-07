@@ -62,23 +62,24 @@ MLNode::add_connection(int connection_index)
 }
 
 bool
-MLNode::is_connected(const MLNode& node)
+MLNode::is_connected(const MLNode& node, const TArray<MLConnection>& connections)
 {
     if (node.layer == layer)
         return false;
     if (layer > node.layer)
     {
-        for (auto& connection : node.output_connections)
+        for (auto& connection_index : node.output_connections)
         {
-            if (number == connection)
+
+            if (number == connections[connection_index].to_node)
                 return true;
         }
     }
     else
     {
-        for (auto& connection : output_connections)
+        for (auto& connection_index : output_connections)
         {
-            if (node.number == connection)
+            if (node.number == connections[connection_index].to_node)
                 return true;
         }
     }

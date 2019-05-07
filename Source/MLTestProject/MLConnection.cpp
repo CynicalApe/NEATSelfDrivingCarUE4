@@ -35,6 +35,7 @@ MLConnection::mutate()
     else
     {
         weight += StaticRandomNumberGenerator.GetNormal(-1, 1) * MUTATION_SCALE;
-        FMath::Clamp(-1.0, 1.0, weight);
+        weight = FMath::Clamp(weight, -1.0, 1.0);
     }
+    check(weight <= 1.f && weight >= -1);
 }

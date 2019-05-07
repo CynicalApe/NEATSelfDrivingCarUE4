@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "MLGenome.h"
 #include "GameFramework/Character.h"
+#include <Runtime/Engine/Classes/Materials/MaterialInstanceDynamic.h>
 #include "MLCharacter.generated.h"
 #define SIMULATE_ML 1
 
@@ -64,6 +65,8 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     void update_char_w_network_output(float DeltaTime);
     void handle_char_camera();
     void kill_if_stale(float DeltaTime);
+    void kill_if_checkpoint();
+    void set_car_color(const FVector& color);
 
     float normalize(float val, float min, float max);
     inline float fvector_lenght(const FVector& vec)
@@ -101,7 +104,8 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     int checkpoint_count;
     float last_check_point_time;
     float alive_time;
-    bool is_elite = false;
+
+    const float checkpoint_deadline = 4.0f;
 
     TArray<float> sensor_outputs;
     TArray<float> network_inputs;
@@ -149,12 +153,23 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     TArray<float> prev_inputs;
     TArray<float> prev_outputs;
     int index;
+    float distance_traveled;
 
     // Actor vectors
     FVector actor_position;
     FVector actor_forward;
+    FVector actor_up;
     FVector actor_right;
     TArray<float> network_output;
+
+    UMaterialInstanceDynamic* material1;
+    UMaterialInstanceDynamic* material2;
+    FVector car_color_simple_red;
+    FVector car_color_orange;
+    FVector car_color_elite;
+    bool dead_set = false;
+    FVector actor_new_position;
+    FRotator actor_new_rotation;
 
   private:
 };

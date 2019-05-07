@@ -20,7 +20,7 @@ class MLTESTPROJECT_API MLNode
 
     void feed_forward(TArray<MLNode>& genome_nodes, const TArray<MLConnection>& connections);
     void add_connection(int connection_index);
-    bool is_connected(const MLNode& node);
+    bool is_connected(const MLNode& node, const TArray<MLConnection>& connections);
     void operator=(const MLNode& src);
     int number;
     float input;
