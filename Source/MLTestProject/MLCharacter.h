@@ -77,15 +77,17 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     void* first_check_point = NULL;
     void* prev_check_point = NULL;
     void* prev_prev_check_point = NULL;
-
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
     class UStaticMeshComponent* StaticMesh = nullptr;
-    class USpringArmComponent* camera_spring_arm = nullptr;
-    class UCameraComponent* attached_camera = nullptr;
-
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
     class USensorComponent* FrontLeftSensor = nullptr;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
     class USensorComponent* FrontRightSensor = nullptr;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
     class USensorComponent* BackRightSensor = nullptr;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
     class USensorComponent* BackLeftSensor = nullptr;
+
     FName FrontLeftSensorSocket;
     FName FrontRightSensorSocket;
     FName BackRightSensorSocket;
@@ -143,6 +145,7 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     float destruction_distance = 50.0f;
     UPROPERTY(EditAnywhere)
     float stale_limit = 3.5f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
     bool has_crashed = false;
 
     // FOR DEBUG

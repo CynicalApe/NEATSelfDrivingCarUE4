@@ -91,6 +91,7 @@ class MLTESTPROJECT_API AMLPopulationActor : public AActor
     GENINFO generation_info{ 0 };
     float time_interval = 0;
     float prev_best_score = 0;
+    float elite_precision_epsilon = 0.001;
 
     // Editor
     TArray<AActor*> start_point_arr;

@@ -28,8 +28,6 @@ AMLCharacter::AMLCharacter()
 #endif
     RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
     StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesoh"));
-    attached_camera = CreateDefaultSubobject<UCameraComponent>(TEXT("GameCamera"));
-    camera_spring_arm = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraSpringArm"));
     FrontLeftSensor = CreateDefaultSubobject<USensorComponent>(TEXT("FrontSensorComponent"));
     FrontRightSensor = CreateDefaultSubobject<USensorComponent>(TEXT("BehindSensorComponent"));
     BackLeftSensor = CreateDefaultSubobject<USensorComponent>(TEXT("LeftSensorComponent"));
@@ -57,9 +55,6 @@ AMLCharacter::AMLCharacter()
     BackLeftSensorSocket = FName("BackLeftSensor");
     BackRightSensorSocket = FName("BackRightSensor");
 
-    camera_spring_arm->SetupAttachment(RootComponent);
-    attached_camera->SetupAttachment(camera_spring_arm, USpringArmComponent::SocketName);
-
     FrontLeftSensor->SetupAttachment(StaticMesh, FrontRightSensorSocket);
     FrontRightSensor->SetupAttachment(StaticMesh, FrontLeftSensorSocket);
     BackRightSensor->SetupAttachment(StaticMesh, BackLeftSensorSocket);
@@ -70,9 +65,6 @@ AMLCharacter::AMLCharacter()
     BackLeftSensor->SetRayCastDirections(false, true, false, true);
     BackRightSensor->SetRayCastDirections(false, true, true);
 
-    camera_spring_arm->TargetArmLength = 400.f;
-    camera_spring_arm->bEnableCameraLag = true;
-    camera_spring_arm->CameraLagSpeed = 3.0f;
     StaticMesh->SetMobility(EComponentMobility::Movable);
     StaticMesh->SetVisibility(true);
     StaticMesh->SetRelativeRotationExact(FRotator(0.0f, 90.0f, 0.0f));
@@ -263,20 +255,6 @@ AMLCharacter::update_component_locations()
     {
         StaticMesh->SetWorldLocation(root_world_location);
     }
-    if (camera_spring_arm)
-    {
-        camera_spring_arm->SetRelativeLocationAndRotation(FVector::ZeroVector,
-                                                          FRotator(-60.0f, 0.f, 0.0f));
-        camera_spring_arm->SetWorldLocation(root_world_location);
-    }
-    if (attached_camera)
-    {
-        FVector socket_location;
-        FRotator socket_rotation;
-        camera_spring_arm->GetSocketWorldLocationAndRotation(
-          USpringArmComponent::SocketName, socket_location, socket_rotation);
-        attached_camera->SetWorldLocationAndRotation(socket_location, socket_rotation);
-    }
     handle_single_attachment(StaticMesh, FrontLeftSensor, FrontRightSensorSocket);
     handle_single_attachment(StaticMesh, FrontRightSensor, FrontLeftSensorSocket);
     handle_single_attachment(StaticMesh, BackRightSensor, BackLeftSensorSocket);
@@ -286,18 +264,6 @@ AMLCharacter::update_component_locations()
 void
 AMLCharacter::handle_attachments()
 {
-    if (attached_camera)
-    {
-        /*FDetachmentTransformRules detachmenRule(EDetachmentRule::KeepRelative, false);
-        attached_camera->DetachFromComponent(detachmenRule);
-        FVector socket_location;
-        FRotator socket_rotation;
-        camera_spring_arm->GetSocketWorldLocationAndRotation(USpringArmComponent::SocketName,
-        socket_location, socket_rotation);
-        attached_camera->SetWorldLocationAndRotation(socket_location, socket_rotation);
-        attached_camera->SetupAttachment(camera_spring_arm, USpringArmComponent::SocketName);
-        UE_LOG(LogTemp, Warning, TEXT("Attached Camera"));*/
-    }
 }
 
 void
@@ -376,7 +342,6 @@ AMLCharacter::camera_zoom(float AxisValue)
     if (AxisValue != 0)
     {
         // attached_camera->FieldOfView += ::Lerp<float>(90.0f, 60.0f, ZoomFactor * AxisValue);
-        camera_spring_arm->TargetArmLength += ZoomFactor * AxisValue;
     }
 }
 
@@ -452,13 +417,6 @@ AMLCharacter::update_char_w_network_output(float DeltaTime)
 void
 AMLCharacter::handle_char_camera()
 {
-    if (!CameraInput.IsZero())
-    {
-        FRotator NewRotation = camera_spring_arm->GetTargetRotation();
-        NewRotation.Yaw += CameraInput.X;
-        NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch + CameraInput.Y, -88.0f, 30.0f);
-        camera_spring_arm->SetWorldRotation(NewRotation);
-    }
 }
 
 void
