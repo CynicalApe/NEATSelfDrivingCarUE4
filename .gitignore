@@ -75,3 +75,15 @@ Plugins/*/Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+Source/MLTestProject/MLCharacter_LOCAL_3020.h
+Source/MLTestProject/MLCharacter_LOCAL_2640.cpp
+Source/MLTestProject/MLCharacter_BASE_3020.h
+Source/MLTestProject/MLCharacter_BASE_2640.cpp
+Source/MLTestProject/MLCharacter_REMOTE_3020.h
+Source/MLTestProject/MLCharacter_REMOTE_2640.cpp
+Source/MLTestProject/MLCharacter_BACKUP_3020.h
+Source/MLTestProject/MLCharacter_BACKUP_2640.cpp
+Source/MLTestProject/MLPopulationActor.cpp.orig
+Source/MLTestProject/MLGenome.cpp.orig
+Source/MLTestProject/MLCharacter.h.orig
+Source/MLTestProject/MLCharacter.cpp.orig

@@ -27,7 +27,7 @@ USensorComponent::USensorComponent()
     StaticMesh->SetCollisionObjectType(ECC_WorldDynamic);
     StaticMesh->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
     StaticMesh->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
-
+    StaticMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     RootComponent->SetupAttachment(this);
     StaticMesh->SetupAttachment(RootComponent);
     world = GetWorld();
@@ -43,11 +43,8 @@ USensorComponent::BeginPlay()
     HitRays = (bool*)malloc(sizeof(bool) * DirectionCount);
     CastDirections = (bool*)malloc(sizeof(bool) * DirectionCount);
     CastDirections[0] = CastForward;
-    CastDirections[1] = CastBehind;
-    CastDirections[2] = CastRight;
-    CastDirections[3] = CastLeft;
-    CastDirections[4] = CastUp;
-    CastDirections[5] = CastDown;
+    CastDirections[1] = CastRight;
+    CastDirections[2] = CastLeft;
 }
 
 void
@@ -85,17 +82,9 @@ USensorComponent::TickComponent(float DeltaTime,
 }
 
 void
-USensorComponent::SetRayCastDirections(bool CastForward,
-                                       bool CastBehind,
-                                       bool CastRight,
-                                       bool CastLeft,
-                                       bool CastUp,
-                                       bool CastDown)
+USensorComponent::SetRayCastDirections(bool CastForward, bool CastRight, bool CastLeft)
 {
     this->CastForward = CastForward;
-    this->CastBehind = CastBehind;
     this->CastRight = CastRight;
     this->CastLeft = CastLeft;
-    this->CastUp = CastUp;
-    this->CastDown = CastDown;
 }

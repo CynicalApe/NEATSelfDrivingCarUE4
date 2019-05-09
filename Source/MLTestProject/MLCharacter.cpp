@@ -32,9 +32,10 @@ AMLCharacter::AMLCharacter()
     FrontRightSensor = CreateDefaultSubobject<USensorComponent>(TEXT("BehindSensorComponent"));
     BackLeftSensor = CreateDefaultSubobject<USensorComponent>(TEXT("LeftSensorComponent"));
     BackRightSensor = CreateDefaultSubobject<USensorComponent>(TEXT("RightSensorComponent"));
+    GetCapsuleComponent()->SetupAttachment(RootComponent);
 
     // Network
-    ML_input_count = ML_sensor_count + 4; // sensors + two 2D vectors
+    ML_input_count = ML_ray_count + 4; // sensors + two 2D vectors
     network.create_empty_genome(ML_input_count, ML_output_count, false);
 
     fitness = 0;
@@ -57,13 +58,13 @@ AMLCharacter::AMLCharacter()
 
     FrontLeftSensor->SetupAttachment(StaticMesh, FrontRightSensorSocket);
     FrontRightSensor->SetupAttachment(StaticMesh, FrontLeftSensorSocket);
-    BackRightSensor->SetupAttachment(StaticMesh, BackLeftSensorSocket);
-    BackLeftSensor->SetupAttachment(StaticMesh, BackRightSensorSocket);
+    /*BackRightSensor->SetupAttachment(StaticMesh, BackLeftSensorSocket);
+    BackLeftSensor->SetupAttachment(StaticMesh, BackRightSensorSocket);*/
 
-    FrontRightSensor->SetRayCastDirections(true, false, true);
-    FrontLeftSensor->SetRayCastDirections(true, false, false, true);
-    BackLeftSensor->SetRayCastDirections(false, false, false, true);
-    BackRightSensor->SetRayCastDirections(false, false, true);
+    FrontRightSensor->SetRayCastDirections(true, true, false);
+    FrontLeftSensor->SetRayCastDirections(true, false, true);
+    /*BackLeftSensor->SetRayCastDirections(false, true, false, true);
+    BackRightSensor->SetRayCastDirections(false, true, true);*/
 
     StaticMesh->SetMobility(EComponentMobility::Movable);
     StaticMesh->SetVisibility(true);
@@ -71,18 +72,19 @@ AMLCharacter::AMLCharacter()
     update_editor_properties();
     Tags.Add(FName("MLTrigger"));
     RootComponent->SetMobility(EComponentMobility::Movable);
-    StaticMesh->SetGenerateOverlapEvents(true);
-    StaticMesh->SetCollisionObjectType(ECC_WorldDynamic);
-    StaticMesh->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
-    StaticMesh->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
-    GetCapsuleComponent()->SetCollisionObjectType(ECC_WorldDynamic);
-    GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
-    GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
-    GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    StaticMesh->SetGenerateOverlapEvents(false);
+    StaticMesh->SetCollisionObjectType(ECC_WorldStatic);
+    StaticMesh->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Ignore);
+    StaticMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    GetCapsuleComponent()->SetCollisionObjectType(ECC_WorldStatic);
+    GetCapsuleComponent()->SetGenerateOverlapEvents(true);
+    GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Ignore);
+    GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
     StaticMesh->SetupAttachment(RootComponent);
 
     network_inputs.SetNum(ML_input_count);
-    sensor_outputs.SetNum(ML_sensor_count);
+    sensor_outputs.SetNum(ML_ray_count);
     network_inputs.SetNum(ML_input_count);
     max_sensor_input = FrontRightSensor->RayTravelDistance;
     velocity_vector = FVector(0.f, 0.f, 0.f);
@@ -134,6 +136,8 @@ AMLCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
     update_actor_vectors();
+    tick_sensors();
+
     update_char_w_network_output(DeltaTime);
 }
 #endif
@@ -142,10 +146,9 @@ AMLCharacter::update(float DeltaTime)
 {
 #if SIMULATE_ML
     {
-        Super::Tick(DeltaTime);
-
         if (!has_crashed)
         {
+            Super::Tick(DeltaTime);
             update_actor_vectors();
             tick_sensors();
             update_network_inputs();
@@ -237,12 +240,7 @@ AMLCharacter::update_pos(float dt, float acceleration_input)
 void
 AMLCharacter::update_rotation(float dt, float steering_input)
 {
-    if (steering_input != 0)
-    {
-        int a = 10;
-    }
     float angle = steering_input * rotation_speed * dt * (current_speed / max_speed);
-    // UE_LOG(LogTemp, Warning, TEXT("Current Angle: %f"), angle);
     actor_new_rotation = GetActorRotation().Add(0, angle, 0);
 }
 
@@ -294,10 +292,10 @@ AMLCharacter::handle_single_attachment(USceneComponent* ParentComponent,
 void
 AMLCharacter::tick_sensors()
 {
-    FrontLeftSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 0);
-    FrontRightSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 2);
-    BackRightSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 4);
-    BackLeftSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 5);
+    FrontRightSensor->RayCastRight(actor_forward, actor_right, sensor_outputs, 2);
+    FrontLeftSensor->RayCastLeft(actor_forward, actor_right, sensor_outputs, 0);
+    /*  BackRightSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 4);
+      BackLeftSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 6);*/
 }
 
 void
@@ -401,8 +399,7 @@ AMLCharacter::normalize(float val, float min, float max)
 void
 AMLCharacter::update_network_inputs()
 {
-    pushed_frame_count++;
-    for (int i = 0; i < ML_sensor_count; i++)
+    for (int i = 0; i < ML_ray_count; i++)
     {
         if (sensor_outputs[i] <= destruction_distance)
         {
@@ -411,11 +408,10 @@ AMLCharacter::update_network_inputs()
 		sensor_score_to_add += sensor_outputs[i] * sensor_score_mult;
         network_inputs[i] = (normalize(sensor_outputs[i], 0, max_sensor_input));
     }
-   
-    network_inputs[ML_sensor_count] = normalize(velocity_vector[0], -max_speed, max_speed);
-    network_inputs[ML_sensor_count + 1] = normalize(velocity_vector[1], -max_speed, max_speed);
-    network_inputs[ML_sensor_count + 2] = actor_forward.X;
-    network_inputs[ML_sensor_count + 3] = actor_forward.Y;
+    network_inputs[ML_ray_count] = normalize(velocity_vector[0], -max_speed, max_speed);
+    network_inputs[ML_ray_count + 1] = normalize(velocity_vector[1], -max_speed, max_speed);
+    network_inputs[ML_ray_count + 2] = actor_forward.X;
+    network_inputs[ML_ray_count + 3] = actor_forward.Y;
 }
 
 void

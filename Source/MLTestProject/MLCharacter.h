@@ -81,7 +81,6 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     class UStaticMeshComponent* StaticMesh = nullptr;
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     class USensorComponent* FrontLeftSensor = nullptr;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
     class USensorComponent* FrontRightSensor = nullptr;
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     class USensorComponent* BackRightSensor = nullptr;
@@ -126,7 +125,7 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
 
     float ML_input_count;
     float max_sensor_input;
-    const int ML_sensor_count = 6;
+    const int ML_ray_count = 4;
     const int ML_output_count = 2;
     UPROPERTY(EditAnywhere)
     float check_point_score_mult = 500;

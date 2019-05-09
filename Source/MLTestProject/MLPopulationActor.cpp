@@ -53,29 +53,28 @@ void
 AMLPopulationActor::update(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    current_gen_time += DeltaTime;
-
     int dead_count = 0;
-    ParallelFor(players.Num(), [&](int32 Idx) { players[Idx]->update(DeltaTime); });
-
+    ParallelFor(population_size, [&](int idx) { players[idx]->update(DeltaTime); });
     for (auto& player : players)
     {
         if (player->has_crashed)
-            dead_count++;
-        player->SetActorLocationAndRotation(player->actor_new_position, player->actor_new_rotation);
-        if (player->has_crashed && !player->dead_set)
         {
-            player->set_car_color(player->car_color_simple_red);
-            player->dead_set = true;
+            if (!player->dead_set)
+            {
+                player->set_car_color(player->car_color_simple_red);
+                player->dead_set = true;
+            }
+            dead_count++;
+        }
+        else
+        {
+            player->SetActorLocationAndRotation(player->actor_new_position,
+                                                player->actor_new_rotation);
         }
     }
     if (dead_count == players.Num())
     {
         new_generation();
-    }
-    if (current_gen_time - time_interval > 2)
-    {
-        time_interval = current_gen_time;
     }
 }
 
@@ -497,7 +496,7 @@ AMLPopulationActor::new_generation()
         {
             generation_info.copy_count++;
             children_genomes.Add(species[i].players[0]->network);
-            //check(children_genomes.Last().connections.Num() >= 20)
+            // check(children_genomes.Last().connections.Num() >= 20)
         }
 
         int allowed_children_count = (species[i].avg_fitness * players.Num() / avg_fitness_sum) - 1;
@@ -532,7 +531,7 @@ AMLPopulationActor::new_generation()
         it->network = children_genomes[i];
         it->network.reset_genome();
         it->reset_player(default_start_location, default_start_rotation);
-        check(it->network.connections.Num() >= 20)
+        // check(it->network.connections.Num() >= 20)
     }
     players[0]->network.is_elite = true;
     players[0]->set_car_color(players[0]->car_color_elite);
