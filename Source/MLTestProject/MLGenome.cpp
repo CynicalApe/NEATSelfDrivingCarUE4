@@ -29,7 +29,7 @@ MLGenome::MLGenome(int icount, int ocount, bool cross_over)
         nodes.Add(MLNode(node_count++, 1, NULL));
     }
     bias_node_index = node_count++;
-    check(bias_node_index == 11 && "BIAS MODIFIED!");
+    // check(bias_node_index == 11 && "BIAS MODIFIED!");
     nodes.Add(MLNode(bias_node_index, 0, NULL));
 }
 
@@ -377,7 +377,7 @@ MLGenome::operator=(const MLGenome& src)
     bias_node_index = src.bias_node_index;
     is_elite = src.is_elite;
 
-    check(bias_node_index == 14 && "BIAS MODIFIED!");
+    // check(bias_node_index == 14 && "BIAS MODIFIED!");
     for (auto& it : src.nodes)
     {
         nodes.Add(it);
