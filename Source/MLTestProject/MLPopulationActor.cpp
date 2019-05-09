@@ -326,15 +326,15 @@ AMLPopulationActor::new_generation()
     if (population_size <= 0)
         return;
     // DEBUG
-    int elite_count = 0;
-    for (auto& player : players)
-    {
-        if (player->network.is_elite)
-        {
-            elite_count++;
-        }
-    }
-    check(elite_count <= 1);
+    //int elite_count = 0;
+    //for (auto& player : players)
+    //{
+    //    if (player->network.is_elite)
+    //    {
+    //        elite_count++;
+    //    }
+    //}
+    //check(elite_count <= 1);
 
     AMLCharacter* previous_gen_elite = players[0];
 
@@ -444,8 +444,10 @@ AMLPopulationActor::new_generation()
                innovation_history.Num(),
                species.Num());
         UE_LOG(LogTemp, Warning, TEXT("Max Score: %f"), overall_best_score);
+        UE_LOG(LogTemp, Warning, TEXT("Checkpoint Score: %f, Sensor Score: %f, Distance Score: %f "), current_best->check_point_score,current_best->sensor_score,current_best->distance_traveled);
+
         UE_LOG(LogTemp, Warning, TEXT("Current Gen Max Score: %f"), cur_gen_best_score);
-        UE_LOG(LogTemp, Warning, TEXT("Max checkpoint: %d"), curr_max_check_point);
+        UE_LOG(LogTemp, Warning, TEXT("Max point: %d"), curr_max_check_point);
         UE_LOG(LogTemp,
                Warning,
                TEXT("Mutation Constant: %f Staleness: %d"),
@@ -495,7 +497,7 @@ AMLPopulationActor::new_generation()
         {
             generation_info.copy_count++;
             children_genomes.Add(species[i].players[0]->network);
-            check(children_genomes.Last().connections.Num() >= 20)
+            //check(children_genomes.Last().connections.Num() >= 20)
         }
 
         int allowed_children_count = (species[i].avg_fitness * players.Num() / avg_fitness_sum) - 1;
@@ -503,7 +505,7 @@ AMLPopulationActor::new_generation()
         for (int j = 0; j < allowed_children_count; j++)
         {
             create_child(i);
-            check(children_genomes.Last().connections.Num() >= 20)
+            //check(children_genomes.Last().connections.Num() >= 20)
         }
     }
 
@@ -513,10 +515,10 @@ AMLPopulationActor::new_generation()
         generation_info.copy_count++;
     }
 
-    for (auto& player : players)
-    {
-        check(player->network.connections.Num() >= 20);
-    }
+    //for (auto& player : players)
+    //{
+    //    check(player->network.connections.Num() >= 20);
+    //}
 
     while (children_genomes.Num() < players.Num())
     {

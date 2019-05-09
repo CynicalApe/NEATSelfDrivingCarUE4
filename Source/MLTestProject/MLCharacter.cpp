@@ -62,8 +62,8 @@ AMLCharacter::AMLCharacter()
 
     FrontRightSensor->SetRayCastDirections(true, false, true);
     FrontLeftSensor->SetRayCastDirections(true, false, false, true);
-    BackLeftSensor->SetRayCastDirections(false, true, false, true);
-    BackRightSensor->SetRayCastDirections(false, true, true);
+    BackLeftSensor->SetRayCastDirections(false, false, false, true);
+    BackRightSensor->SetRayCastDirections(false, false, true);
 
     StaticMesh->SetMobility(EComponentMobility::Movable);
     StaticMesh->SetVisibility(true);
@@ -94,6 +94,9 @@ AMLCharacter::AMLCharacter()
     car_color_elite = FVector(0.615f, 0.0f, 0.963f);
     UMaterialInterface* Material1 = StaticMesh->GetMaterial(0);
     material1 = StaticMesh->CreateDynamicMaterialInstance(1, Material1);
+
+    lap_count = 0;
+    sensor_score = 0;
     /*UMaterialInterface* Material2 = StaticMesh->GetMaterial(1);
     material2 = StaticMesh->CreateDynamicMaterialInstance(1, Material2);*/
 }
@@ -198,7 +201,7 @@ void
 AMLCharacter::calculate_score()
 {
     // TODO_OGUZ: Tune this
-    score = check_point_score + distance_traveled;
+    score = check_point_score + distance_traveled + sensor_score;
     // score = check_point_score;
     fitness = score;
 }
@@ -294,7 +297,7 @@ AMLCharacter::tick_sensors()
     FrontLeftSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 0);
     FrontRightSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 2);
     BackRightSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 4);
-    BackLeftSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 6);
+    BackLeftSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 5);
 }
 
 void
@@ -315,9 +318,20 @@ AMLCharacter::check_point_update(void* ptr)
         return;
     }
     checkpoint_count++;
+    if (checkpoint_count % total_checkpoint_count == 0)
+    {
+        if (++lap_count >= 4)
+        {
+            has_crashed = true;
+            return;
+		}
+    }
 
-    check_point_score += check_point_score_mult * checkpoint_count * checkpoint_count /
-                         (alive_time - last_check_point_time);
+    check_point_score +=
+      check_point_score_mult * checkpoint_count / (alive_time - last_check_point_time);
+    sensor_score += (sensor_score_to_add / pushed_frame_count);
+    pushed_frame_count = 0;
+    sensor_score_to_add = 0;
     // check_point_score += check_point_score_mult * checkpoint_count;
     last_check_point_time = alive_time;
     prev_prev_check_point = prev_check_point;
@@ -350,7 +364,11 @@ AMLCharacter::reset_player(const FVector& start_point_location,
                            const FRotator& start_point_rotation)
 {
     fitness = 0;
+    sensor_score_to_add = 0;
     checkpoint_count = 0;
+    lap_count = 0;
+    sensor_score = 0;
+    pushed_frame_count = 0;
     score = 0;
     has_crashed = false;
     alive_time = 0;
@@ -383,14 +401,17 @@ AMLCharacter::normalize(float val, float min, float max)
 void
 AMLCharacter::update_network_inputs()
 {
+    pushed_frame_count++;
     for (int i = 0; i < ML_sensor_count; i++)
     {
         if (sensor_outputs[i] <= destruction_distance)
         {
             has_crashed = true;
         }
+		sensor_score_to_add += sensor_outputs[i] * sensor_score_mult;
         network_inputs[i] = (normalize(sensor_outputs[i], 0, max_sensor_input));
     }
+   
     network_inputs[ML_sensor_count] = normalize(velocity_vector[0], -max_speed, max_speed);
     network_inputs[ML_sensor_count + 1] = normalize(velocity_vector[1], -max_speed, max_speed);
     network_inputs[ML_sensor_count + 2] = actor_forward.X;

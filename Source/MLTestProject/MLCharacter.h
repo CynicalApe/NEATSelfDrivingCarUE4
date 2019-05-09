@@ -103,12 +103,16 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     float fitness;
     float score;
     float check_point_score;
+    float sensor_score;
     int checkpoint_count;
     float last_check_point_time;
     float alive_time;
-
+	// TODO no magics
+    int total_checkpoint_count = 55;
+	int lap_count;
     const float checkpoint_deadline = 4.0f;
-
+    int pushed_frame_count = 0;
+    float sensor_score_to_add = 0;
     TArray<float> sensor_outputs;
     TArray<float> network_inputs;
     float current_speed;
@@ -122,21 +126,24 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
 
     float ML_input_count;
     float max_sensor_input;
-    const int ML_sensor_count = 8;
+    const int ML_sensor_count = 6;
     const int ML_output_count = 2;
-    const int velocity_input_index = 8;
-    const float check_point_score_mult = 100;
-
     UPROPERTY(EditAnywhere)
-    float max_speed = 50.f;
+    float check_point_score_mult = 500;
+    UPROPERTY(EditAnywhere)
+    float sensor_score_mult = 0.5;
+    UPROPERTY(EditAnywhere)
+    int sensor_score_frame = 10;
+    UPROPERTY(EditAnywhere)
+    float max_speed = 75.f;
     UPROPERTY(EditAnywhere)
     float brake_mult = 250;
     UPROPERTY(EditAnywhere)
-    float thrust = 40.f;
+    float thrust = 50.f;
     UPROPERTY(EditAnywhere)
-    float rotation_speed = 150;
+    float rotation_speed = 250;
     UPROPERTY(EditAnywhere)
-    float lateral_friction_const = 6;
+    float lateral_friction_const = 5;
     UPROPERTY(EditAnywhere)
     float backward_friction_const = 0.6;
     UPROPERTY(EditAnywhere)
@@ -149,7 +156,6 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     bool has_crashed = false;
 
     // FOR DEBUG
-    int pushed_frame_count = 0;
     int read_frame_count = 0;
     TArray<float> inputs;
     TArray<float> outputs;
