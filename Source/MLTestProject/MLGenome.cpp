@@ -377,7 +377,7 @@ MLGenome::operator=(const MLGenome& src)
     bias_node_index = src.bias_node_index;
     is_elite = src.is_elite;
 
-    //check(bias_node_index == 14 && "BIAS MODIFIED!");
+    check(bias_node_index == 14 && "BIAS MODIFIED!");
     for (auto& it : src.nodes)
     {
         nodes.Add(it);
