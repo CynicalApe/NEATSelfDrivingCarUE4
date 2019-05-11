@@ -99,9 +99,15 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     bool bZoomingIn;
 
     MLGenome network;
+    int lap_count = 0;
+    const int max_lap_limit = 3;
     float fitness;
     float score;
     float check_point_score;
+    float sensor_penalty_to_add = 0;
+    int pushed_frame_count = 0;
+    const float sensor_penalty_mult = .07f;
+    float sensor_penalty = 0;
     int checkpoint_count;
     float last_check_point_time;
     float alive_time;
@@ -126,6 +132,7 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     const int velocity_input_index = 8;
     const float check_point_score_mult = 100;
 
+	
     UPROPERTY(EditAnywhere)
     float max_speed = 50.f;
     UPROPERTY(EditAnywhere)
@@ -148,7 +155,7 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     bool has_crashed = false;
 
     // FOR DEBUG
-    int pushed_frame_count = 0;
+    
     int read_frame_count = 0;
     TArray<float> inputs;
     TArray<float> outputs;

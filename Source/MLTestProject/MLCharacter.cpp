@@ -143,6 +143,8 @@ AMLCharacter::update(float DeltaTime)
     {
         if (!has_crashed)
         {
+            pushed_frame_count++;
+
             Super::Tick(DeltaTime);
             update_actor_vectors();
             tick_sensors();
@@ -199,7 +201,12 @@ void
 AMLCharacter::calculate_score()
 {
     // TODO_OGUZ: Tune this
-    score = check_point_score + distance_traveled;
+    sensor_penalty *= sensor_penalty_mult;
+    score = check_point_score + distance_traveled - sensor_penalty;
+	if (score <0)
+	{
+            score = 0;
+	}
     // score = check_point_score;
     fitness = score;
 }
@@ -310,12 +317,38 @@ AMLCharacter::check_point_update(void* ptr)
         has_crashed = true;
         return;
     }
+    if (first_check_point == ptr)
+    {
+        lap_count++;
+    }
+    if (checkpoint_count == 0)
+    {
+        first_check_point = ptr;
+    }
     checkpoint_count++;
 
-    check_point_score += check_point_score_mult * checkpoint_count * checkpoint_count /
-                         (alive_time - last_check_point_time);
+ //   if (pushed_frame_count != 0)
+ //   {
+ //       sensor_penalty += sensor_score_to_add / pushed_frame_count;
+ //   }
+ //   else
+ //   {
+ //       sensor_penalty += sensor_score_to_add;
+	//		
+	//}
+    sensor_penalty += sensor_penalty_to_add;
+	sensor_penalty_to_add = 0;
+    pushed_frame_count = 0;
+    check_point_score +=
+      check_point_score_mult * checkpoint_count / (alive_time - last_check_point_time);
     // check_point_score += check_point_score_mult * checkpoint_count;
     last_check_point_time = alive_time;
+
+    if (lap_count == max_lap_limit)
+    {
+        has_crashed = true;
+        return;
+    }
     prev_prev_check_point = prev_check_point;
     prev_check_point = ptr;
 }
@@ -347,6 +380,10 @@ AMLCharacter::reset_player(const FVector& start_point_location,
 {
     fitness = 0;
     checkpoint_count = 0;
+    sensor_penalty_to_add = 0;
+    sensor_penalty = 0;
+    pushed_frame_count = 0;
+    lap_count = 0;
     score = 0;
     has_crashed = false;
     alive_time = 0;
@@ -378,7 +415,9 @@ AMLCharacter::normalize(float val, float min, float max)
 
 void
 AMLCharacter::update_network_inputs()
-{
+{	
+   sensor_penalty_to_add +=FMath::Abs(sensor_outputs[1]-sensor_outputs[3]); // left and right rays
+
     for (int i = 0; i < ML_ray_count; i++)
     {
         if (sensor_outputs[i] <= destruction_distance)

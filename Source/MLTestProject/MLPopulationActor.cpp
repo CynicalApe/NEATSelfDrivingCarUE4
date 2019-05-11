@@ -360,17 +360,25 @@ AMLPopulationActor::new_generation()
     if (current_geneneration > 1)
     {
         check(previous_gen_elite->network.is_elite);
-        check(FMath::Abs(previous_gen_elite->score - prev_best_score) <= elite_precision_epsilon);
+		check(FMath::Abs(previous_gen_elite->score - prev_best_score) <= elite_precision_epsilon);
     }
 
     curr_max_check_point = 0;
-    for (auto& player : players)
+	for (auto& player : players)
     {
         if (curr_max_check_point < player->checkpoint_count)
         {
             curr_max_check_point = player->checkpoint_count;
         }
     }
+    TArray<float> checkpoint_scores;
+    TArray<float> sensor_penalties;
+    checkpoint_scores.Reserve(population_size);
+    for (auto& player : players)
+    {
+        checkpoint_scores.Add(player->check_point_score);
+        sensor_penalties.Add(player->sensor_penalty);
+	}
     UE_LOG(LogTemp, Warning, TEXT("#############################################"));
 
     // TODO_OGUZ: DEBUG BLOCK
@@ -444,7 +452,9 @@ AMLPopulationActor::new_generation()
                species.Num());
         UE_LOG(LogTemp, Warning, TEXT("Max Score: %f"), overall_best_score);
         UE_LOG(LogTemp, Warning, TEXT("Current Gen Max Score: %f"), cur_gen_best_score);
+        UE_LOG(LogTemp, Warning, TEXT("Checkpoint Score: %f, Sensor Penalty: %f, Distance Score: %f"), current_best->check_point_score,current_best->sensor_penalty,current_best->distance_traveled);
         UE_LOG(LogTemp, Warning, TEXT("Max checkpoint: %d"), curr_max_check_point);
+        UE_LOG(LogTemp, Warning, TEXT("Lap Count: %d"), current_best->lap_count);
         UE_LOG(LogTemp,
                Warning,
                TEXT("Mutation Constant: %f Staleness: %d"),
@@ -472,6 +482,9 @@ AMLPopulationActor::new_generation()
 
     children_genomes.Add(current_best->network);
     prev_best_score = current_best->score;
+    prev_best_distance_score = current_best->distance_traveled;
+    prev_best_score = current_best->score;
+    prev_best_checkpoint_score = current_best->check_point_score;
     // DEBUG
     // TArray<float> elite_prev_inputs = current_best->inputs;
     // TArray<float> elite_prev_outputs = current_best->outputs;
