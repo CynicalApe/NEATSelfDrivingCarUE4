@@ -13,8 +13,8 @@ MLGenome::MLGenome()
 MLGenome::MLGenome(int icount, int ocount, bool cross_over)
   : input_count(icount)
   , output_count(ocount)
-  , layer_count(2)
   , node_count(0)
+  , layer_count(2)
 {
     is_elite = false;
     if (cross_over)
