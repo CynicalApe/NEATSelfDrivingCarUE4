@@ -1,7 +1,7 @@
 # Training NEAT Neural Network With Ray Casting in Unreal Engine 4
 ![](https://raw.githubusercontent.com/CynicalApe/NEATSelfDrivingCarUE4/master/Additional/sensor.png)
 ## How It Works:
-Each car has 2 sensor components in front that sends a ray. If the sensors hit anything they return the distance between the sensor and the object. 
+Each car has 2 sensor components in the front that sends 2 rays. If the rays hit anything they return the distance between the sensor and the object. 
 We feed this information + car's own velocity vector and acceleration vector to our neural network. Neural network is created by a method called NeuroEvolution of Augmenting Topologies (NEAT)
 
 ![](https://raw.githubusercontent.com/CynicalApe/NEATSelfDrivingCarUE4/master/Additional/ray_cast_gif.gif)
