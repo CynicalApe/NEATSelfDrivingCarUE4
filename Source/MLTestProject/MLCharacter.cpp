@@ -61,8 +61,8 @@ AMLCharacter::AMLCharacter()
     /*BackRightSensor->SetupAttachment(StaticMesh, BackLeftSensorSocket);
     BackLeftSensor->SetupAttachment(StaticMesh, BackRightSensorSocket);*/
 
-    FrontRightSensor->SetRayCastDirections(true, true, false);
-    FrontLeftSensor->SetRayCastDirections(true, false, true);
+    FrontRightSensor->set_ray_cast_directions(true, true, false);
+    FrontLeftSensor->set_ray_cast_directions(true, false, true);
     /*BackLeftSensor->SetRayCastDirections(false, true, false, true);
     BackRightSensor->SetRayCastDirections(false, true, true);*/
 
@@ -86,7 +86,7 @@ AMLCharacter::AMLCharacter()
     network_inputs.SetNum(ML_input_count);
     sensor_outputs.SetNum(ML_ray_count);
     network_inputs.SetNum(ML_input_count);
-    max_sensor_input = FrontRightSensor->RayTravelDistance;
+    max_sensor_input = FrontRightSensor->ray_travel_distance;
     velocity_vector = FVector(0.f, 0.f, 0.f);
     acceleration_vector = FVector(0.f, 0.f, 0.f);
     index = 0;
@@ -137,7 +137,7 @@ AMLCharacter::Tick(float DeltaTime)
 }
 #endif
 void
-AMLCharacter::update(float DeltaTime)
+AMLCharacter::update(float DeltaTime, bool draw_sensor_rays)
 {
 #if SIMULATE_ML
     {
@@ -147,7 +147,7 @@ AMLCharacter::update(float DeltaTime)
 
             Super::Tick(DeltaTime);
             update_actor_vectors();
-            tick_sensors();
+            tick_sensors(draw_sensor_rays);
             update_network_inputs();
             update_char_w_network_output(DeltaTime);
             handle_char_camera();
@@ -203,10 +203,10 @@ AMLCharacter::calculate_score()
     // TODO_OGUZ: Tune this
     sensor_penalty *= sensor_penalty_mult;
     score = check_point_score + distance_traveled - sensor_penalty;
-	if (score <0)
-	{
-            score = 0;
-	}
+    if (score < 0)
+    {
+        score = 0;
+    }
     // score = check_point_score;
     fitness = score;
 }
@@ -292,10 +292,10 @@ AMLCharacter::handle_single_attachment(USceneComponent* ParentComponent,
 }
 
 void
-AMLCharacter::tick_sensors()
+AMLCharacter::tick_sensors(bool draw_debug_lines)
 {
-    FrontRightSensor->RayCastRight(actor_forward, actor_right, sensor_outputs, 2);
-    FrontLeftSensor->RayCastLeft(actor_forward, actor_right, sensor_outputs, 0);
+    FrontRightSensor->ray_cast(actor_forward, actor_right, sensor_outputs, 0, draw_debug_lines);
+    FrontLeftSensor->ray_cast(actor_forward, actor_right, sensor_outputs, 2, draw_debug_lines);
     /*  BackRightSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 4);
       BackLeftSensor->RayCast(actor_forward, actor_right, actor_up, sensor_outputs, 6);*/
 }
@@ -327,17 +327,17 @@ AMLCharacter::check_point_update(void* ptr)
     }
     checkpoint_count++;
 
- //   if (pushed_frame_count != 0)
- //   {
- //       sensor_penalty += sensor_score_to_add / pushed_frame_count;
- //   }
- //   else
- //   {
- //       sensor_penalty += sensor_score_to_add;
-	//		
-	//}
+    //   if (pushed_frame_count != 0)
+    //   {
+    //       sensor_penalty += sensor_score_to_add / pushed_frame_count;
+    //   }
+    //   else
+    //   {
+    //       sensor_penalty += sensor_score_to_add;
+    //
+    //}
     sensor_penalty += sensor_penalty_to_add;
-	sensor_penalty_to_add = 0;
+    sensor_penalty_to_add = 0;
     pushed_frame_count = 0;
     check_point_score +=
       check_point_score_mult * checkpoint_count / (alive_time - last_check_point_time);
@@ -415,8 +415,9 @@ AMLCharacter::normalize(float val, float min, float max)
 
 void
 AMLCharacter::update_network_inputs()
-{	
-   sensor_penalty_to_add +=FMath::Abs(sensor_outputs[1]-sensor_outputs[3]); // left and right rays
+{
+    sensor_penalty_to_add +=
+      FMath::Abs(sensor_outputs[1] - sensor_outputs[3]); // left and right rays
 
     for (int i = 0; i < ML_ray_count; i++)
     {

@@ -44,7 +44,7 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
                                   FName& SocketName);
 
     // Character Functions
-    void update(float DeltaTime);
+    void update(float DeltaTime, bool draw_sensor_rays);
     void reset_player(const FVector& start_point_location, const FRotator& start_point_rotation);
 
     // Input functions
@@ -56,7 +56,7 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     void check_point_update(void* ptr);
 
     // ML Functions
-    void tick_sensors();
+    void tick_sensors(bool draw_debug_lines = false);
     void calculate_score();
     void update_pos(float dt, float steering_input);
     void update_rotation(float dt, float acceleration_input);
@@ -132,7 +132,6 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     const int velocity_input_index = 8;
     const float check_point_score_mult = 100;
 
-	
     UPROPERTY(EditAnywhere)
     float max_speed = 50.f;
     UPROPERTY(EditAnywhere)
@@ -155,7 +154,7 @@ class MLTESTPROJECT_API AMLCharacter : public ACharacter
     bool has_crashed = false;
 
     // FOR DEBUG
-    
+
     int read_frame_count = 0;
     TArray<float> inputs;
     TArray<float> outputs;

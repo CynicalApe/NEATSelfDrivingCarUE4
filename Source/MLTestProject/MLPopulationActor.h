@@ -66,6 +66,8 @@ class MLTESTPROJECT_API AMLPopulationActor : public AActor
     MLGenome best_brain;
     UPROPERTY(EditAnywhere)
     int population_size = 650;
+    UPROPERTY(EditAnywhere)
+    bool draw_sensor_rays = false;
     int staleness = 0;
     int staleness_constant = 3;
     int max_mutation_constant = 100;

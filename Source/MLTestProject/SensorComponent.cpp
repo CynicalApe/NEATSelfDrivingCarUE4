@@ -12,24 +12,24 @@ USensorComponent::USensorComponent()
     // Set this component to be initialized when the game starts, and to be ticked every frame.  You
     // can turn these features off to improve performance if you don't need them.
     PrimaryComponentTick.bCanEverTick = false;
-    RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
-    StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesh"));
+    root_component = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
+    static_mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesh"));
     static ConstructorHelpers::FObjectFinder<UStaticMesh> MeshAsset(
       TEXT("/Game/sensor2/sensor_sphere"));
     if (MeshAsset.Succeeded())
     {
         UStaticMesh* Asset = MeshAsset.Object;
-        StaticMesh->SetStaticMesh(Asset);
+        static_mesh->SetStaticMesh(Asset);
     }
-    StaticMesh->SetMobility(EComponentMobility::Movable);
-    StaticMesh->SetVisibility(true);
-    StaticMesh->SetGenerateOverlapEvents(false);
-    StaticMesh->SetCollisionObjectType(ECC_WorldDynamic);
-    StaticMesh->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
-    StaticMesh->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
-    StaticMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    RootComponent->SetupAttachment(this);
-    StaticMesh->SetupAttachment(RootComponent);
+    static_mesh->SetMobility(EComponentMobility::Movable);
+    static_mesh->SetVisibility(true);
+    static_mesh->SetGenerateOverlapEvents(false);
+    static_mesh->SetCollisionObjectType(ECC_WorldDynamic);
+    static_mesh->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+    static_mesh->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
+    static_mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    root_component->SetupAttachment(this);
+    static_mesh->SetupAttachment(root_component);
     world = GetWorld();
 }
 
@@ -38,13 +38,13 @@ void
 USensorComponent::BeginPlay()
 {
     Super::BeginPlay();
-    RayDirections = (FVector*)malloc(sizeof(FVector) * DirectionCount);
-    RayHitResults = (FHitResult*)malloc(sizeof(FHitResult) * DirectionCount);
-    HitRays = (bool*)malloc(sizeof(bool) * DirectionCount);
-    CastDirections = (bool*)malloc(sizeof(bool) * DirectionCount);
-    CastDirections[0] = CastForward;
-    CastDirections[1] = CastRight;
-    CastDirections[2] = CastLeft;
+    ray_directions = (FVector*)malloc(sizeof(FVector) * direction_count);
+    ray_hit_results = (FHitResult*)malloc(sizeof(FHitResult) * direction_count);
+    hit_rays = (bool*)malloc(sizeof(bool) * direction_count);
+    cast_directions = (bool*)malloc(sizeof(bool) * direction_count);
+    cast_directions[0] = cast_forward;
+    cast_directions[1] = cast_right;
+    cast_directions[2] = cast_left;
 }
 
 void
@@ -62,14 +62,14 @@ USensorComponent::UninitializeComponent()
 void
 USensorComponent::FreeAllocations()
 {
-    free(RayDirections);
-    free(RayHitResults);
-    free(HitRays);
-    free(CastDirections);
-    RayDirections = NULL;
-    RayHitResults = NULL;
-    HitRays = NULL;
-    CastDirections = NULL;
+    free(ray_directions);
+    free(ray_hit_results);
+    free(hit_rays);
+    free(cast_directions);
+    ray_directions = NULL;
+    ray_hit_results = NULL;
+    hit_rays = NULL;
+    cast_directions = NULL;
 }
 
 // Called every frame
@@ -82,9 +82,9 @@ USensorComponent::TickComponent(float DeltaTime,
 }
 
 void
-USensorComponent::SetRayCastDirections(bool CastForward, bool CastRight, bool CastLeft)
+USensorComponent::set_ray_cast_directions(bool CastForward, bool CastRight, bool CastLeft)
 {
-    this->CastForward = CastForward;
-    this->CastRight = CastRight;
-    this->CastLeft = CastLeft;
+    cast_forward = CastForward;
+    cast_right = CastRight;
+    cast_left = CastLeft;
 }

@@ -4,6 +4,7 @@
 #include <Runtime/Engine/Classes/Engine/StaticMesh.h>
 #include <Runtime/Core/Public/Async/ParallelFor.h>
 #include <cassert>
+#include "Engine.h"
 
 // Sets default values
 AMLPopulationActor::AMLPopulationActor()
@@ -54,9 +55,10 @@ AMLPopulationActor::update(float DeltaTime)
 {
     Super::Tick(DeltaTime);
     int dead_count = 0;
-    ParallelFor(population_size, [&](int idx) { players[idx]->update(DeltaTime); });
+    // ParallelFor(population_size, [&](int idx) { players[idx]->update(DeltaTime); });
     for (auto& player : players)
     {
+        player->update(DeltaTime, draw_sensor_rays);
         if (player->has_crashed)
         {
             if (!player->dead_set)
@@ -360,11 +362,11 @@ AMLPopulationActor::new_generation()
     if (current_geneneration > 1)
     {
         check(previous_gen_elite->network.is_elite);
-		check(FMath::Abs(previous_gen_elite->score - prev_best_score) <= elite_precision_epsilon);
+        check(FMath::Abs(previous_gen_elite->score - prev_best_score) <= elite_precision_epsilon);
     }
 
     curr_max_check_point = 0;
-	for (auto& player : players)
+    for (auto& player : players)
     {
         if (curr_max_check_point < player->checkpoint_count)
         {
@@ -378,7 +380,7 @@ AMLPopulationActor::new_generation()
     {
         checkpoint_scores.Add(player->check_point_score);
         sensor_penalties.Add(player->sensor_penalty);
-	}
+    }
     UE_LOG(LogTemp, Warning, TEXT("#############################################"));
 
     // TODO_OGUZ: DEBUG BLOCK
@@ -452,7 +454,12 @@ AMLPopulationActor::new_generation()
                species.Num());
         UE_LOG(LogTemp, Warning, TEXT("Max Score: %f"), overall_best_score);
         UE_LOG(LogTemp, Warning, TEXT("Current Gen Max Score: %f"), cur_gen_best_score);
-        UE_LOG(LogTemp, Warning, TEXT("Checkpoint Score: %f, Sensor Penalty: %f, Distance Score: %f"), current_best->check_point_score,current_best->sensor_penalty,current_best->distance_traveled);
+        UE_LOG(LogTemp,
+               Warning,
+               TEXT("Checkpoint Score: %f, Sensor Penalty: %f, Distance Score: %f"),
+               current_best->check_point_score,
+               current_best->sensor_penalty,
+               current_best->distance_traveled);
         UE_LOG(LogTemp, Warning, TEXT("Max checkpoint: %d"), curr_max_check_point);
         UE_LOG(LogTemp, Warning, TEXT("Lap Count: %d"), current_best->lap_count);
         UE_LOG(LogTemp,
